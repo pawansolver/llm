@@ -24,6 +24,7 @@ via ``close_session()``.
 """
 
 import logging
+import platform
 from typing import Optional
 
 import aiohttp
@@ -66,6 +67,11 @@ async def get_session() -> aiohttp.ClientSession:
             connector_kwargs['limit_per_host'] = AIOHTTP_POOL_CONNECTIONS_PER_HOST
         else:
             connector_kwargs['limit_per_host'] = 0  # aiohttp: 0 = unlimited
+        # On Windows, aiohttp uses pycares (aiodns) by default which can fail with
+        # 'Could not contact DNS servers' even when standard socket DNS works.
+        # Force ThreadedResolver to use Python's socket.getaddrinfo instead.
+        if platform.system() == 'Windows':
+            connector_kwargs['resolver'] = aiohttp.ThreadedResolver()
         connector = aiohttp.TCPConnector(**connector_kwargs)
         timeout = get_client_timeout()
         _session = aiohttp.ClientSession(

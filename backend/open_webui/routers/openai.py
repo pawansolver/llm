@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import platform
 import re
 from typing import Optional
 from urllib.parse import quote, urlparse
@@ -95,7 +96,13 @@ async def send_get_request(
     config=None,
 ):
     try:
-        async with aiohttp.ClientSession(timeout=_MODEL_LIST_TIMEOUT, trust_env=True) as session:
+        connector_kwargs = {'enable_cleanup_closed': True}
+        # On Windows, aiohttp's default pycares DNS resolver can fail.
+        # Use Python's standard socket-based resolver instead.
+        if platform.system() == 'Windows':
+            connector_kwargs['resolver'] = aiohttp.ThreadedResolver()
+        connector = aiohttp.TCPConnector(**connector_kwargs)
+        async with aiohttp.ClientSession(connector=connector, timeout=_MODEL_LIST_TIMEOUT, trust_env=True) as session:
             if request and config:
                 headers, cookies = await get_headers_and_cookies(request, url, key, config, user=user)
             else:
@@ -727,7 +734,11 @@ async def get_models(request: Request, url_idx: int | None = None, user=Depends(
         url, key, api_config = await get_openai_connection(url_idx)
 
         r = None
+        _connector_kwargs = {'enable_cleanup_closed': True}
+        if platform.system() == 'Windows':
+            _connector_kwargs['resolver'] = aiohttp.ThreadedResolver()
         async with aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(**_connector_kwargs),
             trust_env=True,
             timeout=_MODEL_LIST_TIMEOUT,
         ) as session:
@@ -803,7 +814,11 @@ async def verify_connection(
 
     api_config = form_data.config or {}
 
+    _verify_connector_kwargs = {'enable_cleanup_closed': True}
+    if platform.system() == 'Windows':
+        _verify_connector_kwargs['resolver'] = aiohttp.ThreadedResolver()
     async with aiohttp.ClientSession(
+        connector=aiohttp.TCPConnector(**_verify_connector_kwargs),
         trust_env=True,
         timeout=_MODEL_LIST_TIMEOUT,
     ) as session:
