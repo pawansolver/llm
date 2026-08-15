@@ -23,5 +23,6 @@ pip install -r requirements.txt
 
 echo.
 echo [4/4] Starting the Application...
+set FRONTEND_BUILD_DIR=..\build
 echo The application will be available at http://localhost:8080
 call start_windows.bat
