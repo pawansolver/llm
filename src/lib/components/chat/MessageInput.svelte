@@ -711,6 +711,11 @@
 	};
 
 	const screenCaptureHandler = async () => {
+		// getDisplayMedia is NOT supported on Android WebView
+		if (!('getDisplayMedia' in (navigator.mediaDevices ?? {}))) {
+			toast.error($i18n.t('Screen capture is not supported on this device.'));
+			return;
+		}
 		try {
 			// Request screen media
 			const mediaStream = await navigator.mediaDevices.getDisplayMedia({

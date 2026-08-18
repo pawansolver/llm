@@ -401,7 +401,9 @@
 				throw new Error($i18n.t('Audio recording is not supported in this browser.'));
 			}
 
-			if (displayMedia) {
+			// getDisplayMedia is NOT supported on Android WebView — fall back to mic
+			const canDisplayMedia = displayMedia && 'getDisplayMedia' in (navigator.mediaDevices ?? {});
+			if (canDisplayMedia) {
 				const displayStream = await navigator.mediaDevices.getDisplayMedia({
 					audio: true,
 					video: true
