@@ -7,6 +7,10 @@ declare global {
 		// interface PageData {}
 		// interface Platform {}
 	}
+
+	// Vite define() globals — replaced at build time in vite.config.ts
+	const APP_VERSION: string;
+	const APP_BUILD_HASH: string;
 }
 
 export {};

@@ -5,15 +5,25 @@ const config: CapacitorConfig = {
   appName: 'fluAi',
   webDir: 'build',
   server: {
-    // When running in production (APK), connect to the local backend on PC
-    // Make sure your phone and PC are on the same Wi-Fi network
-    url: 'http://192.168.31.15:8080',
-    cleartext: true, // Allow HTTP (non-HTTPS) connections on Android
-    androidScheme: 'https' // Treat WebView as HTTPS (secure context) so mic/camera work
+    // DO NOT set server.url here.
+    //
+    // When server.url is set to an http:// address, Capacitor navigates the
+    // WebView directly to that HTTP URL. Android WebView then treats the page
+    // as an insecure origin and blocks navigator.mediaDevices.getUserMedia()
+    // (mic / camera) — causing "Permission Denied" in voice / audio mode.
+    //
+    // Without server.url, Capacitor serves the built web assets from its own
+    // local HTTPS server (https://localhost). That IS a secure origin, so
+    // getUserMedia works correctly.
+    //
+    // The backend IP (192.168.31.15:8080) is now hardcoded directly inside
+    // src/lib/constants.ts (WEBUI_BASE_URL) so all API calls go to the right
+    // place without needing a WebView redirect.
+    androidScheme: 'https',   // Serve local assets over https:// (secure origin)
+    cleartext: true,          // Allow outbound HTTP calls to the backend
   },
   android: {
-    // Allow loading HTTP content in the HTTPS WebView context (needed for mic/camera)
-    allowMixedContent: true
+    allowMixedContent: true   // Allow http://192.168.31.15:8080 API calls from the https origin
   }
 };
 

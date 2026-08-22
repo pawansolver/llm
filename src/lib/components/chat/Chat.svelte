@@ -3670,7 +3670,7 @@
 	</title>
 </svelte:head>
 
-<audio id="audioElement" style="display: none;"></audio>
+<audio id="audioElement" playsinline style="display: none;"></audio>
 
 {#if getChatVariablesForm(selectedModelIds, chatVariables, $models).conflicts.length > 0}
 	<Modal bind:show={showChatVariablesModal} size="md">
