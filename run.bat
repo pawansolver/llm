@@ -7,6 +7,8 @@ echo                 Starting Open WebUI (fluAi) Container
 echo ==============================================================================
 echo.
 
+set "PATH=%PATH%;%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin;C:\Program Files\Docker\Docker\resources\bin"
+
 :: Check if Docker is installed and running
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
