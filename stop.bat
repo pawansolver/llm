@@ -6,6 +6,8 @@ echo                 Stopping Open WebUI (fluAi) Container
 echo ==============================================================================
 echo.
 
+set "PATH=%PATH%;%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin;C:\Program Files\Docker\Docker\resources\bin"
+
 docker compose down
 
 echo.
