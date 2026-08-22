@@ -311,3 +311,13 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# Large files & environment archives
+*.zip
+*.tar.gz
+*.apk
+venv/
+.venv/
+backend/venv.zip
+android/app/build/
+

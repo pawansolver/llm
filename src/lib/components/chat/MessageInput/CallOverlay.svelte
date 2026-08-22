@@ -72,8 +72,29 @@
 		conversationState = transitionConversation(conversationState, next);
 	};
 
-	const getTtsEngine = () =>
-		$settings?.audio?.tts?.engine ?? ($config as any)?.audio?.tts?.engine ?? '';
+	// Android WebView does not support window.speechSynthesis at all.
+	// Utterances either fail silently or fire onerror, breaking the entire
+	// voice-conversation loop.  We detect this environment and force a
+	// server-side TTS engine instead so audio always plays via <audio>.
+	const isAndroidWebView = (): boolean => {
+		if (typeof navigator === 'undefined') return false;
+		const ua = navigator.userAgent ?? '';
+		// Capacitor on Android always includes 'wv' (WebView) and 'Android'
+		return /Android/i.test(ua) && (/wv\)/i.test(ua) || /Version\/\d/i.test(ua) || (window as any)?.Capacitor !== undefined);
+	};
+
+	const getTtsEngine = () => {
+		const engine =
+			$settings?.audio?.tts?.engine ?? ($config as any)?.audio?.tts?.engine ?? '';
+		// Browser SpeechSynthesis is non-functional in Android WebView — fall
+		// back to the OpenAI-compatible server engine so responses are spoken.
+		if (engine === '' && isAndroidWebView()) {
+			return ($config as any)?.audio?.tts?.engine !== ''
+				? (($config as any)?.audio?.tts?.engine ?? 'openai')
+				: 'openai';
+		}
+		return engine;
+	};
 
 	const getVoiceId = () => {
 		const configuredVoice = ($config as any)?.audio?.tts?.voice;
@@ -272,6 +293,14 @@
 			(window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 		if (!AudioContextConstructor) return;
 		audioContext = new AudioContextConstructor();
+
+		// Android WebView creates AudioContext in 'suspended' state even after a
+		// user gesture. When suspended, the analyser returns flat (zero) data so
+		// the VAD threshold is never crossed, voice is never detected, and the
+		// recorder never stops — breaking the entire call loop.
+		// resume() is a no-op on desktop (context is already 'running').
+		audioContext.resume().catch(() => {});
+
 		const source = audioContext.createMediaStreamSource(audioStream);
 		analyser = audioContext.createAnalyser();
 		analyser.fftSize = 1024;
@@ -446,10 +475,25 @@
 			queue.onStopped = ({ event: queueEvent }) => {
 				if (queueEvent === 'empty-queue') void finishConversation();
 				if (queueEvent === 'playback-blocked') {
-					fail($i18n.t('Tap retry to resume audio playback.'), async () => {
-						setState('speaking');
-						await $audioQueue?.play();
-					});
+					// Android autoplay policy: audio.play() is blocked when called
+					// outside a user-gesture stack frame.  We attempt one silent
+					// retry — on Android with setMediaPlaybackRequiresUserGesture(false)
+					// the second attempt usually succeeds once the page is active.
+					void $audioQueue
+						?.play()
+						.then(() => {
+							// Retry worked — restore speaking state if needed
+							if (conversationState === 'idle' || conversationState === 'thinking') {
+								setState('speaking');
+							}
+						})
+						.catch(() => {
+							// Retry also failed — show manual tap-to-resume prompt
+							fail($i18n.t('Tap retry to resume audio playback.'), async () => {
+								setState('speaking');
+								await $audioQueue?.play();
+							});
+						});
 				}
 				if (queueEvent === 'error') {
 					fail($i18n.t('Audio playback failed.'), startListening);
