@@ -18,3 +18,12 @@ uploads
 **/*.db
 _test
 backend/data/*
+android/
+.git/
+build/
+*.apk
+*.zip
+*.tar.gz
+backend/venv/
+backend/venv.zip
+
