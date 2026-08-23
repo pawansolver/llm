@@ -19,8 +19,8 @@ if [ ! -f .env ] && [ -f .env.example ]; then
     echo "[INFO] Created .env file from template."
 fi
 
-echo "[1/2] Building and launching containers..."
-docker compose up -d --build
+echo "[1/2] Launching containers..."
+docker compose up -d
 
 echo ""
 echo "[2/2] Containers are up and running!"

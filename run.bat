@@ -29,8 +29,8 @@ if not exist .env (
     )
 )
 
-echo [1/2] Building and launching containers...
-docker compose up -d --build
+echo [1/2] Launching containers...
+docker compose up -d
 
 if %errorlevel% neq 0 (
     echo.
