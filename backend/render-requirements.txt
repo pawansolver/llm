@@ -1,9 +1,14 @@
+# ============================================================
+# Render Cloud Deployment Requirements (No GPU/Heavy packages)
+# ============================================================
+
 fastapi==0.136.3
 uvicorn[standard]==0.51.0
 pydantic==2.13.4
 pydantic-settings
 python-multipart==0.0.32
 itsdangerous==2.2.0
+typer
 
 python-socketio==5.16.2
 orjson==3.11.9
@@ -15,6 +20,7 @@ authlib==1.7.2
 joserfc==1.7.4
 
 requests==2.34.2
+regex
 aiohttp==3.13.5
 async-timeout
 aiocache
@@ -60,7 +66,7 @@ pydub
 imageio-ffmpeg==0.6.0
 chardet==7.4.3
 beautifulsoup4
-
+lxml
 Markdown
 pymdown-extensions
 pypdf
@@ -70,4 +76,13 @@ python-pptx
 validators
 psutil
 ddgs
-typer
+
+pillow
+numpy
+pandas
+openpyxl
+xlrd
+nltk
+defusedxml
+psutil
+xlsxwriter
