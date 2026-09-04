@@ -86,3 +86,20 @@ nltk
 defusedxml
 psutil
 xlsxwriter
+
+# Auth & LDAP
+ldap3
+passlib[bcrypt]
+
+# Storage & Media
+soundfile
+pymysql
+boto3
+
+# Additional utils
+pyOpenSSL
+python-jose[cryptography]
+python-dotenv
+sse-starlette
+peewee
+rank-bm25
