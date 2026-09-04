@@ -287,6 +287,7 @@ OPENAI_API_BASE_URL = os.getenv('OPENAI_API_BASE_URL', '')
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_API_BASE_URL = os.getenv('GEMINI_API_BASE_URL', '')
+DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.com')
 
 
 if OPENAI_API_BASE_URL == '':
