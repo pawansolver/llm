@@ -16,14 +16,14 @@ const config: CapacitorConfig = {
     // local HTTPS server (https://localhost). That IS a secure origin, so
     // getUserMedia works correctly.
     //
-    // The backend IP (192.168.31.15:8080) is now hardcoded directly inside
+    // The backend URL (https://llm-ceqv.onrender.com) is configured directly inside
     // src/lib/constants.ts (WEBUI_BASE_URL) so all API calls go to the right
     // place without needing a WebView redirect.
     androidScheme: 'https',   // Serve local assets over https:// (secure origin)
-    cleartext: true,          // Allow outbound HTTP calls to the backend
+    cleartext: true,          // Allow outbound network calls to the backend
   },
   android: {
-    allowMixedContent: true   // Allow http://192.168.31.15:8080 API calls from the https origin
+    allowMixedContent: true
   }
 };
 
