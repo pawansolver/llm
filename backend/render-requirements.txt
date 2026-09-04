@@ -91,6 +91,15 @@ xlsxwriter
 ldap3
 passlib[bcrypt]
 
+# Azure Storage
+azure-core
+azure-identity
+azure-storage-blob
+azure-search-documents
+
+# Google Cloud
+google-cloud-storage
+
 # Storage & Media
 soundfile
 pymysql
@@ -108,11 +117,12 @@ rank-bm25
 faster-whisper
 SpeechRecognition
 
-# Vector / Embeddings (lightweight)
+# Vector / Embeddings
 sentence-transformers
 einops
+qdrant-client
+pinecone-client
+elasticsearch
 
 # Misc startup deps
 duckdb
-firecrawl-py
-playwright
