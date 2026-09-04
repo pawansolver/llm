@@ -1,5 +1,6 @@
 # ============================================================
-# Render Cloud Deployment Requirements (No GPU/Heavy packages)
+# Render Cloud Deployment Requirements
+# NO GPU/Heavy ML packages (torch, CUDA) - OOM fix for 512MB RAM
 # ============================================================
 
 fastapi==0.136.3
@@ -84,7 +85,6 @@ openpyxl
 xlrd
 nltk
 defusedxml
-psutil
 xlsxwriter
 
 # Auth & LDAP
@@ -113,16 +113,10 @@ sse-starlette
 peewee
 rank-bm25
 
-# Speech & Audio
-faster-whisper
-SpeechRecognition
-
-# Vector / Embeddings
-sentence-transformers
-einops
+# Vector DBs (lightweight, no torch)
 qdrant-client
-pinecone-client
 elasticsearch
 
-# Misc startup deps
+# Misc
 duckdb
+SpeechRecognition
