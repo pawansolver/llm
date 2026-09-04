@@ -3,8 +3,8 @@ import { browser, dev } from '$app/environment';
 
 export const APP_NAME = 'fluAi';
 
-export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : `192.168.31.15:8080`) : '';
-export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : `http://192.168.31.15:8080`) : ``;
+export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : `llm-ceqv.onrender.com`) : '';
+export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : `https://llm-ceqv.onrender.com`) : ``;
 export const WEBUI_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1`;
 
 export const OLLAMA_API_BASE_URL = `${WEBUI_BASE_URL}/ollama`;
