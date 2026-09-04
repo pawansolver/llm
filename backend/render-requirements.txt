@@ -103,3 +103,16 @@ python-dotenv
 sse-starlette
 peewee
 rank-bm25
+
+# Speech & Audio
+faster-whisper
+SpeechRecognition
+
+# Vector / Embeddings (lightweight)
+sentence-transformers
+einops
+
+# Misc startup deps
+duckdb
+firecrawl-py
+playwright
