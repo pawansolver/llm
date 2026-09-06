@@ -62,28 +62,40 @@ class MCPClient:
         self.exit_stack = None
 
     async def connect(self, url: str, headers: Optional[dict] = None):
-        async with AsyncExitStack() as exit_stack:
-            try:
-                self._streams_context = streamablehttp_client(
-                    url,
-                    headers=headers,
-                    httpx_client_factory=create_httpx_client
-                    if AIOHTTP_CLIENT_SESSION_TOOL_SERVER_SSL
-                    else create_insecure_httpx_client,
-                )
+        urls_to_try = [url]
+        clean_url = url.rstrip('/')
+        if not clean_url.endswith('/mcp') and not clean_url.endswith('/sse'):
+            urls_to_try.append(f'{clean_url}/mcp')
 
-                transport = await exit_stack.enter_async_context(self._streams_context)
-                read_stream, write_stream, _ = transport
+        last_error = None
+        for target_url in urls_to_try:
+            async with AsyncExitStack() as exit_stack:
+                try:
+                    self._streams_context = streamablehttp_client(
+                        target_url,
+                        headers=headers,
+                        httpx_client_factory=create_httpx_client
+                        if AIOHTTP_CLIENT_SESSION_TOOL_SERVER_SSL
+                        else create_insecure_httpx_client,
+                    )
 
-                self._session_context = ClientSession(read_stream, write_stream)  # pylint: disable=W0201
+                    transport = await exit_stack.enter_async_context(self._streams_context)
+                    read_stream, write_stream, _ = transport
 
-                self.session = await exit_stack.enter_async_context(self._session_context)
-                with anyio.fail_after(MCP_INITIALIZE_TIMEOUT):
-                    await self.session.initialize()
-                self.exit_stack = exit_stack.pop_all()
-            except Exception as e:
-                await self.disconnect()
-                raise e
+                    self._session_context = ClientSession(read_stream, write_stream)  # pylint: disable=W0201
+
+                    self.session = await exit_stack.enter_async_context(self._session_context)
+                    timeout = max(30, MCP_INITIALIZE_TIMEOUT)
+                    with anyio.fail_after(timeout):
+                        await self.session.initialize()
+                    self.exit_stack = exit_stack.pop_all()
+                    return
+                except Exception as e:
+                    await self.disconnect()
+                    last_error = e
+
+        if last_error:
+            raise last_error
 
     async def list_tool_specs(self) -> Optional[dict]:
         if not self.session:
