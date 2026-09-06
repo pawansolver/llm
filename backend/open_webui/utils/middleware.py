@@ -2229,10 +2229,28 @@ async def connect_mcp_server(
     )
 
     client = MCPClient()
-    await client.connect(
-        url=mcp_server_connection.get('url', ''),
-        headers=headers if headers else None,
-    )
+    # Retry logic for Render free tier cold starts (server wakes up slowly)
+    mcp_url = mcp_server_connection.get('url', '')
+    max_retries = 3
+    last_connect_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            await client.connect(
+                url=mcp_url,
+                headers=headers if headers else None,
+            )
+            last_connect_error = None
+            break
+        except Exception as conn_err:
+            last_connect_error = conn_err
+            log.warning(
+                f'MCP server "{server_id}" connect attempt {attempt}/{max_retries} failed: {conn_err}'
+            )
+            if attempt < max_retries:
+                import asyncio as _asyncio
+                await _asyncio.sleep(5)  # wait 5s for Render cold start
+    if last_connect_error:
+        raise last_connect_error
 
     function_name_filter_list = mcp_server_connection.get('config', {}).get('function_name_filter_list', '')
     if isinstance(function_name_filter_list, str):
