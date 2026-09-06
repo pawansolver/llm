@@ -1526,6 +1526,9 @@ AUDIO_STT_OPENAI_API_KEY = os.getenv('AUDIO_STT_OPENAI_API_KEY', OPENAI_API_KEY)
 
 AUDIO_STT_OPENAI_API_REQUEST_FORMAT = os.getenv('AUDIO_STT_OPENAI_API_REQUEST_FORMAT', 'multipart')
 
+AUDIO_STT_GEMINI_API_KEY = os.getenv('AUDIO_STT_GEMINI_API_KEY', GEMINI_API_KEY)
+AUDIO_STT_GEMINI_MODEL = os.getenv('AUDIO_STT_GEMINI_MODEL', 'gemini-2.5-flash')
+
 AUDIO_STT_ENGINE = os.getenv('AUDIO_STT_ENGINE', '')
 
 AUDIO_STT_MODEL = os.getenv('AUDIO_STT_MODEL', '')
@@ -2995,6 +2998,8 @@ DEFAULT_CONFIG = {
     'images.edit.comfyui.nodes': IMAGES_EDIT_COMFYUI_WORKFLOW_NODES,
     'audio.stt.whisper_model': WHISPER_MODEL,
     'audio.stt.deepgram.api_key': DEEPGRAM_API_KEY,
+    'audio.stt.gemini.api_key': AUDIO_STT_GEMINI_API_KEY,
+    'audio.stt.gemini.model': AUDIO_STT_GEMINI_MODEL,
     'audio.stt.openai.api_base_url': AUDIO_STT_OPENAI_API_BASE_URL,
     'audio.stt.openai.api_key': AUDIO_STT_OPENAI_API_KEY,
     'audio.stt.openai.api_request_format': AUDIO_STT_OPENAI_API_REQUEST_FORMAT,
