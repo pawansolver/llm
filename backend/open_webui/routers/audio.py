@@ -137,6 +137,8 @@ STT_CONFIG_KEYS = {
     'RATE_LIMIT_WINDOW_SECONDS': 'audio.stt.rate_limit_window_seconds',
     'RETENTION_SECONDS': 'audio.stt.retention_seconds',
     'WHISPER_MODEL': 'audio.stt.whisper_model',
+    'GEMINI_API_KEY': 'audio.stt.gemini.api_key',
+    'GEMINI_MODEL': 'audio.stt.gemini.model',
     'DEEPGRAM_API_KEY': 'audio.stt.deepgram.api_key',
     'AZURE_API_KEY': 'audio.stt.azure.api_key',
     'AZURE_REGION': 'audio.stt.azure.region',
@@ -152,6 +154,7 @@ MASKED_SECRET = '********'
 TTS_SECRET_FIELDS = {'OPENAI_API_KEY', 'API_KEY', 'MISTRAL_API_KEY'}
 STT_SECRET_FIELDS = {
     'OPENAI_API_KEY',
+    'GEMINI_API_KEY',
     'DEEPGRAM_API_KEY',
     'AZURE_API_KEY',
     'MISTRAL_API_KEY',
@@ -353,6 +356,8 @@ class STTConfigForm(BaseModel):
     RATE_LIMIT_WINDOW_SECONDS: int = Field(default=AUDIO_STT_RATE_LIMIT_WINDOW_SECONDS, ge=1)
     RETENTION_SECONDS: int = Field(default=AUDIO_STT_RETENTION_SECONDS, ge=0)
     WHISPER_MODEL: str
+    GEMINI_API_KEY: str = ''
+    GEMINI_MODEL: str = 'gemini-2.5-flash'
     DEEPGRAM_API_KEY: str
     AZURE_API_KEY: str
     AZURE_REGION: str
@@ -397,15 +402,16 @@ async def update_audio_config(request: Request, form_data: AudioConfigUpdateForm
     stt_data = await preserve_masked_secrets(form_data.stt.model_dump(), STT_CONFIG_KEYS, STT_SECRET_FIELDS)
     replacement_service = None
     if form_data.stt.ENGINE in {'', 'web'}:
-        replacement_service = await create_whisper_service(
-            model_name=form_data.stt.WHISPER_MODEL,
-            concurrency=max(1, form_data.stt.MAX_CONCURRENT_REQUESTS),
-            timeout_seconds=max(1, form_data.stt.TIMEOUT_SECONDS),
-        )
         try:
+            replacement_service = await create_whisper_service(
+                model_name=form_data.stt.WHISPER_MODEL,
+                concurrency=max(1, form_data.stt.MAX_CONCURRENT_REQUESTS),
+                timeout_seconds=max(1, form_data.stt.TIMEOUT_SECONDS),
+            )
             await replacement_service.reload(form_data.stt.WHISPER_MODEL)
-        except AudioServiceError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        except Exception as exc:
+            log.warning(f'Whisper service reload skipped (cloud/headless environment): {exc}')
+            replacement_service = None
 
     await Config.upsert(
         {
@@ -758,6 +764,80 @@ async def _transcribe_whisper(request, file_path, languages, file_dir, id):
     return data
 
 
+async def _transcribe_gemini(request, file_path, filename, languages, file_dir, id):
+    """Transcribe audio via Google Gemini API (multimodal audio)."""
+    api_key = await Config.get('audio.stt.gemini.api_key') or os.getenv('GEMINI_API_KEY', '')
+    if not api_key:
+        raise HTTPException(status_code=400, detail='Gemini API key is required for Gemini STT')
+
+    model = await Config.get('audio.stt.gemini.model') or 'gemini-2.5-flash'
+    if model.startswith('models/'):
+        model = model.replace('models/', '')
+
+    mime_type = mimetypes.guess_type(file_path)[0] or 'audio/webm'
+    if mime_type == 'audio/x-wav':
+        mime_type = 'audio/wav'
+    elif mime_type == 'audio/x-m4a':
+        mime_type = 'audio/m4a'
+
+    async with aiofiles.open(file_path, 'rb') as f:
+        audio_bytes = await f.read()
+
+    audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+
+    lang_instruction = ''
+    if languages and languages[0]:
+        lang_instruction = f' The spoken language is {languages[0]}.'
+
+    prompt = (
+        f'Transcribe this audio verbatim.{lang_instruction} '
+        'Output only the transcribed text with no timestamps, no formatting, and no commentary. '
+        'If there is no speech or only silence/background noise, output empty string.'
+    )
+
+    payload = {
+        'contents': [
+            {
+                'parts': [
+                    {'inline_data': {'mime_type': mime_type, 'data': audio_b64}},
+                    {'text': prompt},
+                ]
+            }
+        ],
+        'generationConfig': {
+            'temperature': 0.0,
+        },
+    }
+
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}'
+
+    try:
+        session = await get_session()
+        async with session.post(url, json=payload, ssl=AIOHTTP_CLIENT_SESSION_SSL) as r:
+            if r.status != 200:
+                err_text = await r.text()
+                log.error(f'Gemini STT API error: {r.status} {err_text}')
+                raise HTTPException(status_code=r.status, detail=f'Gemini STT error: {err_text}')
+            res = await r.json()
+
+        text = ''
+        candidates = res.get('candidates', [])
+        if candidates and 'content' in candidates[0]:
+            parts = candidates[0]['content'].get('parts', [])
+            if parts and 'text' in parts[0]:
+                text = parts[0]['text'].strip()
+
+        data = {'text': text}
+        async with aiofiles.open(os.path.join(file_dir, f'{id}.json'), 'w') as f:
+            await f.write(json.dumps(data))
+        return data
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception(f'Error during Gemini transcription: {e}')
+        raise HTTPException(status_code=500, detail=f'Gemini transcription failed: {str(e)}')
+
+
 async def _transcribe_openai(request, file_path, filename, languages, file_dir, id, user=None):
     """Transcribe audio via an OpenAI-compatible STT endpoint."""
     r = None
@@ -1023,16 +1103,30 @@ async def transcription_handler(request, file_path, metadata, user=None):
         None,  # Always fallback to None in case transcription fails
     ]
 
-    if await Config.get('audio.stt.engine') in {'', 'web'}:
-        return await _transcribe_whisper(request, file_path, languages, file_dir, id)
-    elif await Config.get('audio.stt.engine') == 'openai':
+    engine = await Config.get('audio.stt.engine')
+    if engine in {'', 'web'}:
+        try:
+            return await _transcribe_whisper(request, file_path, languages, file_dir, id)
+        except (AudioServiceError, HTTPException, Exception) as exc:
+            # If local whisper is unavailable (e.g. Render cloud deployment), automatically fallback to Gemini or OpenAI STT
+            gemini_key = await Config.get('audio.stt.gemini.api_key') or os.getenv('GEMINI_API_KEY', '')
+            if gemini_key:
+                log.info('Local Whisper unavailable, automatically falling back to Gemini STT')
+                return await _transcribe_gemini(request, file_path, filename, languages, file_dir, id)
+            openai_key = await Config.get('audio.stt.openai.api_key') or os.getenv('OPENAI_API_KEY', '')
+            if openai_key:
+                log.info('Local Whisper unavailable, automatically falling back to OpenAI STT')
+                return await _transcribe_openai(request, file_path, filename, languages, file_dir, id, user)
+            raise exc
+    elif engine == 'gemini':
+        return await _transcribe_gemini(request, file_path, filename, languages, file_dir, id)
+    elif engine == 'openai':
         return await _transcribe_openai(request, file_path, filename, languages, file_dir, id, user)
-    elif await Config.get('audio.stt.engine') == 'deepgram':
+    elif engine == 'deepgram':
         return await _transcribe_deepgram(request, file_path, languages, file_dir, id)
-    elif await Config.get('audio.stt.engine') == 'azure':
+    elif engine == 'azure':
         return await _transcribe_azure(request, file_path, filename, file_dir, id)
-
-    elif await Config.get('audio.stt.engine') == 'mistral':
+    elif engine == 'mistral':
         return await _transcribe_mistral(request, file_path, filename, metadata, file_dir, id)
 
 

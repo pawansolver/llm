@@ -63,6 +63,8 @@
 	let STT_RATE_LIMIT_WINDOW_SECONDS = 60;
 	let STT_RETENTION_SECONDS = 0;
 	let STT_WHISPER_MODEL = '';
+	let STT_GEMINI_API_KEY = '';
+	let STT_GEMINI_MODEL = 'gemini-2.5-flash';
 	let STT_AZURE_API_KEY = '';
 	let STT_AZURE_REGION = '';
 	let STT_AZURE_LOCALES = '';
@@ -189,6 +191,8 @@
 				RATE_LIMIT_WINDOW_SECONDS: STT_RATE_LIMIT_WINDOW_SECONDS,
 				RETENTION_SECONDS: STT_RETENTION_SECONDS,
 				WHISPER_MODEL: STT_WHISPER_MODEL,
+				GEMINI_API_KEY: STT_GEMINI_API_KEY,
+				GEMINI_MODEL: STT_GEMINI_MODEL,
 				DEEPGRAM_API_KEY: STT_DEEPGRAM_API_KEY,
 				AZURE_API_KEY: STT_AZURE_API_KEY,
 				AZURE_REGION: STT_AZURE_REGION,
@@ -259,6 +263,8 @@
 			STT_RATE_LIMIT_WINDOW_SECONDS = res.stt.RATE_LIMIT_WINDOW_SECONDS ?? 60;
 			STT_RETENTION_SECONDS = res.stt.RETENTION_SECONDS ?? 0;
 			STT_WHISPER_MODEL = res.stt.WHISPER_MODEL;
+			STT_GEMINI_API_KEY = res.stt.GEMINI_API_KEY;
+			STT_GEMINI_MODEL = res.stt.GEMINI_MODEL || 'gemini-2.5-flash';
 			STT_AZURE_API_KEY = res.stt.AZURE_API_KEY;
 			STT_AZURE_REGION = res.stt.AZURE_REGION;
 			STT_AZURE_LOCALES = res.stt.AZURE_LOCALES;
@@ -324,7 +330,8 @@
 			>
 				<SettingsSelect bind:value={STT_ENGINE} placeholder={$i18n.t('Select an engine')}>
 					<option value="">{$i18n.t('Whisper base/int8 (Local, Free)')}</option>
-					<option value="openai">{$i18n.t('OpenAI')}</option>
+					<option value="gemini">{$i18n.t('Google Gemini')}</option>
+					<option value="openai">{$i18n.t('OpenAI / Groq')}</option>
 					<option value="web">{$i18n.t('Web API')}</option>
 					<option value="deepgram">{$i18n.t('Deepgram')}</option>
 					<option value="azure">{$i18n.t('Azure AI Speech')}</option>
@@ -355,7 +362,24 @@
 				</AdminSettingField>
 			{/if}
 
-			{#if STT_ENGINE === 'openai'}
+			{#if STT_ENGINE === 'gemini'}
+				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+					<AdminSettingField label={$i18n.t('Gemini API Key')}>
+						<SensitiveInput
+							variant="settings"
+							placeholder={$i18n.t('API Key (Leave empty to use GEMINI_API_KEY from env)')}
+							bind:value={STT_GEMINI_API_KEY}
+						/>
+					</AdminSettingField>
+					<AdminSettingField label={$i18n.t('Gemini Model')}>
+						<input
+							class={inputClass}
+							placeholder="gemini-2.5-flash"
+							bind:value={STT_GEMINI_MODEL}
+						/>
+					</AdminSettingField>
+				</div>
+			{:else if STT_ENGINE === 'openai'}
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					<AdminSettingField label={$i18n.t('API Base URL')}>
 						<input
