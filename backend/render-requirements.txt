@@ -113,9 +113,11 @@ peewee
 rank-bm25
 
 # Vector DBs (lightweight, no torch)
+chromadb==1.5.9
 qdrant-client
 elasticsearch
 
 # Misc
 duckdb
 SpeechRecognition
+pyyaml
