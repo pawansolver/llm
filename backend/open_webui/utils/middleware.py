@@ -23,8 +23,10 @@ from open_webui.config import (
     CODE_INTERPRETER_BLOCKED_MODULES,
     CODE_INTERPRETER_PYODIDE_PROMPT,
     DEFAULT_CODE_INTERPRETER_PROMPT,
+    DEFAULT_SKILLS_USER_PROMPT,
     DEFAULT_TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE,
     DEFAULT_VOICE_MODE_PROMPT_TEMPLATE,
+    ENABLE_DEFAULT_SKILLS_PROMPT,
 )
 from open_webui.constants import TASKS
 from open_webui.env import (
@@ -2724,6 +2726,28 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         if fallback:
             set_last_user_message_content(fallback, form_data['messages'])
             prompt = fallback
+
+    # Prepend default skills prompt to user message if enabled to enforce skills discovery for every request
+    enable_skills_prompt = await Config.get('skills.default_prompt.enable', ENABLE_DEFAULT_SKILLS_PROMPT)
+    if enable_skills_prompt:
+        skills_prompt_template = await Config.get('skills.default_prompt_template', DEFAULT_SKILLS_USER_PROMPT)
+        if skills_prompt_template:
+            prefix = skills_prompt_template.strip()
+            for msg in reversed(form_data.get('messages', [])):
+                if msg.get('role') == 'user':
+                    content = msg.get('content')
+                    if isinstance(content, str):
+                        if prefix not in content:
+                            msg['content'] = f"{prefix}\n\n{content}"
+                    elif isinstance(content, list):
+                        for part in content:
+                            if isinstance(part, dict) and part.get('type') == 'text':
+                                text = part.get('text', '')
+                                if prefix not in text:
+                                    part['text'] = f"{prefix}\n\n{text}"
+                                break
+                    break
+
     # TODO: re-enable URL extraction from prompt
     # urls = []
     # if prompt and len(prompt or "") < 500 and (not files or len(files) == 0):
@@ -2752,6 +2776,24 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     if payload_tools is None:
         # Server side tools
         tool_ids = metadata.get('tool_ids', None)
+
+        # Auto-attach MCP tool servers (e.g. Diffy) when default skills prompt is enabled
+        if enable_skills_prompt:
+            tool_server_connections = await Config.get('tool_server.connections', []) or []
+            mcp_server_ids = [
+                (c.get('info') or {}).get('id')
+                for c in tool_server_connections
+                if c.get('type', '') == 'mcp' and (c.get('info') or {}).get('id')
+            ]
+            if mcp_server_ids:
+                if tool_ids is None:
+                    tool_ids = []
+                for ms_id in mcp_server_ids:
+                    tool_marker = f'server:mcp:{ms_id}'
+                    if tool_marker not in tool_ids:
+                        tool_ids.append(tool_marker)
+                metadata['tool_ids'] = tool_ids
+
         # Client side tools
         direct_tool_servers = metadata.get('tool_servers', None)
 
