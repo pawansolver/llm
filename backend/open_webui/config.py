@@ -288,6 +288,11 @@ OPENAI_API_BASE_URL = os.getenv('OPENAI_API_BASE_URL', '')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_API_BASE_URL = os.getenv('GEMINI_API_BASE_URL', '')
 DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.com')
+ENABLE_DEFAULT_SKILLS_PROMPT = os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT', 'True').lower() == 'true'
+DEFAULT_SKILLS_USER_PROMPT = os.getenv(
+    'DEFAULT_SKILLS_USER_PROMPT',
+    '[INSTRUCTION: You have access to a dynamic skills library via MCP tools (list_skills, get_skill, list_skill_files). For this user request, first discover available skills with list_skills, select relevant skills, and retrieve instructions with get_skill before answering. If no skill matches or get_skill returns SKILL_NOT_FOUND, reply strictly with: "i have not record with your answer". Never answer from general knowledge when no skill matches.]'
+)
 
 
 if OPENAI_API_BASE_URL == '':
@@ -2783,6 +2788,8 @@ DEFAULT_CONFIG = {
     'openai.api_configs': OPENAI_API_CONFIGS,
     'models.base_models_cache': ENABLE_BASE_MODELS_CACHE,
     'tool_server.connections': TOOL_SERVER_CONNECTIONS,
+    'skills.default_prompt.enable': ENABLE_DEFAULT_SKILLS_PROMPT,
+    'skills.default_prompt_template': DEFAULT_SKILLS_USER_PROMPT,
     'oauth.client.timeout': OAUTH_CLIENT_TIMEOUT,
     'terminal_server.connections': TERMINAL_SERVER_CONNECTIONS,
     'code_execution.enable': ENABLE_CODE_EXECUTION,

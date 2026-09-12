@@ -57,7 +57,7 @@ export const normalizeVadSettings = (value?: {
 	threshold?: number;
 }): DictationVadSettings => ({
 	enabled: value?.enabled ?? false,
-	silenceDurationMs: Math.min(30_000, Math.max(500, value?.silenceDurationMs ?? 2_000)),
+	silenceDurationMs: Math.min(30_000, Math.max(500, value?.silenceDurationMs ?? 2_500)),
 	threshold: Math.min(1, Math.max(0.001, value?.threshold ?? 0.02))
 });
 

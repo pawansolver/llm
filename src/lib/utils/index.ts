@@ -1148,7 +1148,7 @@ export const extractSentencesForAudio = (text: string) => {
 			const previousText = mergedTexts[lastIndex];
 			const wordCount = previousText.split(/\s+/).length;
 			const charCount = previousText.length;
-			if (wordCount < 4 || charCount < 50) {
+			if (wordCount < 12 || charCount < 100) {
 				mergedTexts[lastIndex] = previousText + ' ' + currentText;
 			} else {
 				mergedTexts.push(currentText);

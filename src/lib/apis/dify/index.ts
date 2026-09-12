@@ -11,6 +11,17 @@ export const getBaseInstruction = async () => {
 	}
 };
 
+export const getDefaultUserPrompt = async () => {
+	try {
+		const res = await fetch(`${DIFY_API_BASE_URL}/get-default-user-prompt`);
+		if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.error('Error fetching default user prompt from Dify:', err);
+		return null;
+	}
+};
+
 export const getSkillInstruction = async (skillName: string) => {
 	try {
 		const res = await fetch(`${DIFY_API_BASE_URL}/get-instruction`, {
