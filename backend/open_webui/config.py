@@ -42,14 +42,17 @@ async def seed_registered_defaults():
     await Config.repair_flattened_dict_configs()
     await Config.seed_defaults(DEFAULT_CONFIG)
 
-    # Force-sync explicit API environment variables into database Config
+    # Force-sync explicit API environment variables into database Config on EVERY startup.
+    # This ensures that a Render redeploy with updated .env always wins over stale DB values.
     env_overrides = {}
+
+    # Always override API keys/URLs/enable from env if they are explicitly set
     if os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEYS'):
         env_overrides['openai.api_keys'] = OPENAI_API_KEYS
     if os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_BASE_URLS'):
         env_overrides['openai.api_base_urls'] = OPENAI_API_BASE_URLS
-    if 'ENABLE_OPENAI_API' in os.environ:
-        env_overrides['openai.enable'] = ENABLE_OPENAI_API
+    # Always sync enable flag when explicitly set in env (never let stale DB block it)
+    env_overrides['openai.enable'] = ENABLE_OPENAI_API
     if 'ENABLE_OLLAMA_API' in os.environ:
         env_overrides['ollama.enable'] = ENABLE_OLLAMA_API
     if os.getenv('OLLAMA_BASE_URL') or os.getenv('OLLAMA_BASE_URLS'):

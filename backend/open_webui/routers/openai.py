@@ -292,7 +292,15 @@ async def get_openai_config() -> dict:
     if (os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_BASE_URLS')):
         current_urls = config_dict.get('OPENAI_API_BASE_URLS', [])
         current_keys = config_dict.get('OPENAI_API_KEYS', [])
-        if not current_keys or not any(current_keys) or current_urls == ['https://api.openai.com/v1']:
+        # Override if DB has no keys, or default OpenAI URL, or keys don't match env
+        should_override = (
+            not current_keys
+            or not any(current_keys)
+            or current_urls == ['https://api.openai.com/v1']
+            or current_keys != ENV_KEYS
+            or current_urls != ENV_URLS
+        )
+        if should_override:
             config_dict['OPENAI_API_BASE_URLS'] = ENV_URLS
             config_dict['OPENAI_API_KEYS'] = ENV_KEYS
             config_dict['ENABLE_OPENAI_API'] = ENV_ENABLE
@@ -311,15 +319,26 @@ async def get_openai_runtime_config() -> tuple[bool, list[str], list[str], dict]
         ENABLE_OPENAI_API as ENV_ENABLE,
     )
 
-    if (os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_BASE_URLS')) and (
-        not api_keys or not any(api_keys) or api_base_urls == ['https://api.openai.com/v1']
-    ):
-        api_base_urls = ENV_URLS
-        api_keys = ENV_KEYS
+    # Override from env if: no keys, stale default OpenAI URL, or env config differs from DB
+    if (os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_BASE_URLS')):
+        should_override = (
+            not api_keys
+            or not any(api_keys)
+            or api_base_urls == ['https://api.openai.com/v1']
+            or api_keys != ENV_KEYS
+            or api_base_urls != ENV_URLS
+        )
+        if should_override:
+            api_base_urls = ENV_URLS
+            api_keys = ENV_KEYS
 
+    # Always respect env for enable flag if DB value is None/missing
     enable_val = values.get('openai.enable')
     if enable_val is None:
         enable_val = ENV_ENABLE
+    # If env explicitly sets ENABLE_OPENAI_API=true, never let a stale DB false block it
+    if os.getenv('ENABLE_OPENAI_API', '').lower() == 'true':
+        enable_val = True
 
     return (
         enable_val,
@@ -756,7 +775,10 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
 @router.get('/models')
 @router.get('/models/{url_idx}')
 async def get_models(request: Request, url_idx: int | None = None, user=Depends(get_verified_user)):
-    if not await Config.get('openai.enable'):
+    # Use get_openai_runtime_config (which applies env fallback) instead of raw DB lookup
+    # to prevent stale DB false/None from blocking Groq/custom provider models
+    enable_openai_api, _, _, _ = await get_openai_runtime_config()
+    if not enable_openai_api:
         raise HTTPException(status_code=503, detail='OpenAI API is disabled')
 
     models = {
