@@ -1,7 +1,7 @@
 @echo off
 title Ollama Live Cloudflare Tunnel
 echo ========================================================
-echo         Ollama Live Tunnel for Open WebUI & Mobile APK
+echo         Ollama Live Tunnel for Open WebUI and Mobile APK
 echo ========================================================
 echo.
 
