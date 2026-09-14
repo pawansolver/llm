@@ -296,6 +296,17 @@ elif DATABASE_TYPE == 'sqlite+sqlcipher' and not os.getenv('DATABASE_URL'):
 if 'postgres://' in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://')
 
+# If psycopg2 is not installed, use psycopg v3 dialect for postgresql URLs
+try:
+    import psycopg2  # noqa: F401
+except ImportError:
+    try:
+        import psycopg  # noqa: F401
+        if DATABASE_URL.startswith('postgresql://') and '+psycopg' not in DATABASE_URL:
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+    except ImportError:
+        pass
+
 DATABASE_SCHEMA = os.getenv('DATABASE_SCHEMA', None)
 DATABASE_ENABLE_IAM_TOKEN_AUTH = os.getenv('DATABASE_ENABLE_IAM_TOKEN_AUTH', 'False').lower() == 'true'
 

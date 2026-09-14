@@ -25,6 +25,7 @@ from open_webui.env import (
     DATABASE_SQLITE_PRAGMA_SYNCHRONOUS,
     DATABASE_SQLITE_PRAGMA_TEMP_STORE,
     DATABASE_URL,
+    DATA_DIR,
     ENABLE_DB_MIGRATIONS,
     OPEN_WEBUI_DIR,
 )
@@ -147,6 +148,17 @@ _url_without_ssl, _ssl_dict = extract_ssl_params_from_url(DATABASE_URL)
 
 # For psycopg2 (sync engine), re-append sslmode + cert-file params.
 SQLALCHEMY_DATABASE_URL = reattach_ssl_params_to_url(_url_without_ssl, _ssl_dict) if _ssl_dict else DATABASE_URL
+
+# If psycopg2 is not installed, use psycopg v3 dialect for postgresql URLs
+try:
+    import psycopg2  # noqa: F401
+except ImportError:
+    if SQLALCHEMY_DATABASE_URL.startswith('postgresql://') and '+psycopg' not in SQLALCHEMY_DATABASE_URL:
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+    elif SQLALCHEMY_DATABASE_URL.startswith('postgres://') and '+psycopg' not in SQLALCHEMY_DATABASE_URL:
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif SQLALCHEMY_DATABASE_URL.startswith('postgresql+psycopg2://'):
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace('postgresql+psycopg2://', 'postgresql+psycopg://', 1)
 
 
 class RDSIAMTokenAuth:
@@ -312,21 +324,26 @@ elif 'sqlite' in SQLALCHEMY_DATABASE_URL:
 
     event.listen(engine, 'connect', on_connect)
 else:
-    if isinstance(DATABASE_POOL_SIZE, int):
-        if DATABASE_POOL_SIZE > 0:
-            engine = create_engine(
-                SQLALCHEMY_DATABASE_URL,
-                pool_size=DATABASE_POOL_SIZE,
-                max_overflow=DATABASE_POOL_MAX_OVERFLOW,
-                pool_timeout=DATABASE_POOL_TIMEOUT,
-                pool_recycle=DATABASE_POOL_RECYCLE,
-                pool_pre_ping=True,
-                poolclass=QueuePool,
-            )
+    try:
+        if isinstance(DATABASE_POOL_SIZE, int):
+            if DATABASE_POOL_SIZE > 0:
+                engine = create_engine(
+                    SQLALCHEMY_DATABASE_URL,
+                    pool_size=DATABASE_POOL_SIZE,
+                    max_overflow=DATABASE_POOL_MAX_OVERFLOW,
+                    pool_timeout=DATABASE_POOL_TIMEOUT,
+                    pool_recycle=DATABASE_POOL_RECYCLE,
+                    pool_pre_ping=True,
+                    poolclass=QueuePool,
+                )
+            else:
+                engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, poolclass=NullPool)
         else:
-            engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, poolclass=NullPool)
-    else:
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+            engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+    except Exception as e:
+        log.exception(f'Failed to initialize PostgreSQL sync engine with {SQLALCHEMY_DATABASE_URL}: {e}. Falling back to SQLite.')
+        SQLALCHEMY_DATABASE_URL = f'sqlite:///{DATA_DIR}/webui.db'
+        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False})
 
 enable_iam_token_auth(engine)
 
@@ -385,26 +402,37 @@ if 'sqlite' in ASYNC_SQLALCHEMY_DATABASE_URL:
     def _set_sqlite_pragmas(dbapi_connection, connection_record):
         _apply_sqlite_pragmas(dbapi_connection)
 else:
-    if isinstance(DATABASE_POOL_SIZE, int):
-        if DATABASE_POOL_SIZE > 0:
-            async_engine = create_async_engine(
-                ASYNC_SQLALCHEMY_DATABASE_URL,
-                pool_size=DATABASE_POOL_SIZE,
-                max_overflow=DATABASE_POOL_MAX_OVERFLOW,
-                pool_timeout=DATABASE_POOL_TIMEOUT,
-                pool_recycle=DATABASE_POOL_RECYCLE,
-                pool_pre_ping=True,
-            )
+    try:
+        if isinstance(DATABASE_POOL_SIZE, int):
+            if DATABASE_POOL_SIZE > 0:
+                async_engine = create_async_engine(
+                    ASYNC_SQLALCHEMY_DATABASE_URL,
+                    pool_size=DATABASE_POOL_SIZE,
+                    max_overflow=DATABASE_POOL_MAX_OVERFLOW,
+                    pool_timeout=DATABASE_POOL_TIMEOUT,
+                    pool_recycle=DATABASE_POOL_RECYCLE,
+                    pool_pre_ping=True,
+                )
+            else:
+                async_engine = create_async_engine(
+                    ASYNC_SQLALCHEMY_DATABASE_URL,
+                    pool_pre_ping=True,
+                    poolclass=NullPool,
+                )
         else:
             async_engine = create_async_engine(
                 ASYNC_SQLALCHEMY_DATABASE_URL,
                 pool_pre_ping=True,
-                poolclass=NullPool,
             )
-    else:
+    except Exception as e:
+        log.exception(f'Failed to initialize PostgreSQL async engine with {ASYNC_SQLALCHEMY_DATABASE_URL}: {e}. Falling back to SQLite.')
+        ASYNC_SQLALCHEMY_DATABASE_URL = f'sqlite+aiosqlite:///{DATA_DIR}/webui.db'
         async_engine = create_async_engine(
             ASYNC_SQLALCHEMY_DATABASE_URL,
-            pool_pre_ping=True,
+            connect_args={'check_same_thread': False},
+            pool_size=512,
+            pool_timeout=DATABASE_POOL_TIMEOUT,
+            pool_recycle=DATABASE_POOL_RECYCLE,
         )
 
 enable_iam_token_auth(async_engine)
