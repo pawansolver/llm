@@ -354,10 +354,15 @@ async def lifespan(app: FastAPI):
     if SAFE_MODE:
         await Functions.deactivate_all_functions()
 
-    # This should be blocking (sync) so functions are not deactivated on first /get_models calls
-    # when the first user lands on the / route.
+    # This should not block the server startup past the port scan window
     log.info('Installing external dependencies of functions and tools...')
-    await install_tool_and_function_dependencies()
+    try:
+        await asyncio.wait_for(install_tool_and_function_dependencies(), timeout=8)
+    except asyncio.TimeoutError:
+        log.warning('install_tool_and_function_dependencies timed out after 8s, continuing in background...')
+        asyncio.create_task(install_tool_and_function_dependencies())
+    except Exception as e:
+        log.warning(f'Error installing tool and function dependencies: {e}')
 
     app.state.redis = get_redis_client(async_mode=True)
 
@@ -377,25 +382,30 @@ async def lifespan(app: FastAPI):
 
     if await Config.get('models.base_models_cache'):
         try:
-            await get_all_models(
-                Request(
-                    # Creating a mock request object to pass to get_all_models
-                    {
-                        'type': 'http',
-                        'asgi.version': '3.0',
-                        'asgi.spec_version': '2.0',
-                        'method': 'GET',
-                        'path': '/internal',
-                        'query_string': b'',
-                        'headers': Headers({}).raw,
-                        'client': ('127.0.0.1', 12345),
-                        'server': ('127.0.0.1', 80),
-                        'scheme': 'http',
-                        'app': app,
-                    }
+            await asyncio.wait_for(
+                get_all_models(
+                    Request(
+                        # Creating a mock request object to pass to get_all_models
+                        {
+                            'type': 'http',
+                            'asgi.version': '3.0',
+                            'asgi.spec_version': '2.0',
+                            'method': 'GET',
+                            'path': '/internal',
+                            'query_string': b'',
+                            'headers': Headers({}).raw,
+                            'client': ('127.0.0.1', 12345),
+                            'server': ('127.0.0.1', 80),
+                            'scheme': 'http',
+                            'app': app,
+                        }
+                    ),
+                    None,
                 ),
-                None,
+                timeout=5,
             )
+        except asyncio.TimeoutError:
+            log.warning('Pre-fetching models timed out after 5s; continuing startup')
         except Exception as e:
             log.warning(f'Failed to pre-fetch models at startup: {e}')
 
@@ -419,14 +429,18 @@ async def lifespan(app: FastAPI):
 
         log.info('Initializing tool servers...')
         try:
-            await set_tool_servers(mock_request)
+            await asyncio.wait_for(set_tool_servers(mock_request), timeout=5)
             log.info(f'Initialized {len(app.state.TOOL_SERVERS)} tool server(s)')
+        except asyncio.TimeoutError:
+            log.warning('Tool server initialization timed out after 5s; continuing startup')
         except Exception as e:
             log.warning(f'Failed to initialize tool servers at startup: {e}')
 
         try:
-            await set_terminal_servers(mock_request)
+            await asyncio.wait_for(set_terminal_servers(mock_request), timeout=5)
             log.info(f'Initialized {len(app.state.TERMINAL_SERVERS)} terminal server(s)')
+        except asyncio.TimeoutError:
+            log.warning('Terminal server initialization timed out after 5s; continuing startup')
         except Exception as e:
             log.warning(f'Failed to initialize terminal servers at startup: {e}')
 

@@ -23,7 +23,8 @@
 		temporaryChatEnabled,
 		settings,
 		config,
-		showSettings
+		showSettings,
+		mobile
 	} from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
@@ -176,13 +177,29 @@
 	const toggleOpen = async () => {
 		show = !show;
 		if (show) {
+			if (items.length === 0) {
+				try {
+					const fetchedModels = await getModels(
+						localStorage.token,
+						$config?.features?.enable_direct_connections ? ($settings?.directConnections ?? null) : null
+					);
+					if (fetchedModels && fetchedModels.length > 0) {
+						models.set(fetchedModels);
+					}
+				} catch (e) {
+					console.error('Failed to reload models on open:', e);
+				}
+			}
+
 			searchValue = '';
 			listScrollTop = 0;
 			resetView();
 			updatePosition();
 			await tick();
 			updatePosition();
-			window.setTimeout(() => document.getElementById('model-search-input')?.focus(), 0);
+			if (!$mobile) {
+				window.setTimeout(() => document.getElementById('model-search-input')?.focus(), 0);
+			}
 		} else {
 			document.getElementById(`model-selector-${id}-button`)?.blur();
 		}
@@ -865,6 +882,25 @@
 										}}
 									>
 										{$i18n.t('Manage Connections')}
+									</button>
+								</div>
+							{:else if items.length === 0}
+								<div class="my-2 flex w-full flex-col items-center justify-center px-4 py-3 text-center">
+									<div class="text-xs text-gray-500 dark:text-gray-400">
+										{$i18n.t('No models available')}
+									</div>
+									<button
+										type="button"
+										class="mt-2 text-xs text-blue-500 hover:underline cursor-pointer"
+										on:click={async () => {
+											const res = await getModels(
+												localStorage.token,
+												$config?.features?.enable_direct_connections ? ($settings?.directConnections ?? null) : null
+											);
+											if (res && res.length > 0) models.set(res);
+										}}
+									>
+										{$i18n.t('Reload models')}
 									</button>
 								</div>
 							{:else}
