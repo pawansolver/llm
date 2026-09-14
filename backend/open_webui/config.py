@@ -67,6 +67,10 @@ async def seed_registered_defaults():
     if (not current_tools or len(current_tools) == 0) and TOOL_SERVER_CONNECTIONS:
         env_overrides['tool_server.connections'] = TOOL_SERVER_CONNECTIONS
 
+    current_default_models = await Config.get('ui.default_models')
+    if (not current_default_models or str(current_default_models).strip() in ('', 'None')) and DEFAULT_MODELS:
+        env_overrides['ui.default_models'] = DEFAULT_MODELS
+
     if env_overrides:
         log.info(f'Applying environment overrides to Config: {list(env_overrides.keys())}')
         await Config.upsert(env_overrides)
@@ -1665,7 +1669,7 @@ ENABLE_PASSWORD_AUTH = os.getenv('ENABLE_PASSWORD_AUTH', 'True').lower() == 'tru
 
 DEFAULT_LOCALE = os.getenv('DEFAULT_LOCALE', '')
 
-DEFAULT_MODELS = os.getenv('DEFAULT_MODELS', None)
+DEFAULT_MODELS = os.getenv('DEFAULT_MODELS', 'llama-3.3-70b-versatile')
 
 DEFAULT_PINNED_MODELS = os.getenv('DEFAULT_PINNED_MODELS', None)
 
