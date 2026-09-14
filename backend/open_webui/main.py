@@ -336,8 +336,14 @@ async def lifespan(app: FastAPI):
         await async_reset_config()
 
     await import_legacy_config_json()
-    await seed_registered_defaults()
-    await initialize_runtime_config(app)
+    try:
+        await seed_registered_defaults()
+    except Exception as _seed_err:
+        log.warning(f'seed_registered_defaults failed (DB may be unavailable): {_seed_err}')
+    try:
+        await initialize_runtime_config(app)
+    except Exception as _init_err:
+        log.warning(f'initialize_runtime_config failed: {_init_err}')
     await migrate_legacy_webhook_config()
     await publish_event(app, EVENTS.SYSTEM_STARTUP_STARTED, source='system')
 
