@@ -63,6 +63,10 @@ async def seed_registered_defaults():
     if os.getenv('AUDIO_STT_MODEL'):
         env_overrides['audio.stt.model'] = AUDIO_STT_MODEL
 
+    current_tools = await Config.get('tool_server.connections')
+    if (not current_tools or len(current_tools) == 0) and TOOL_SERVER_CONNECTIONS:
+        env_overrides['tool_server.connections'] = TOOL_SERVER_CONNECTIONS
+
     if env_overrides:
         log.info(f'Applying environment overrides to Config: {list(env_overrides.keys())}')
         await Config.upsert(env_overrides)
@@ -382,6 +386,16 @@ except Exception as e:
     log.exception(f'Error loading TOOL_SERVER_CONNECTIONS: {e}')
     tool_server_connections = []
 
+if not tool_server_connections and DIFY_API_BASE_URL:
+    tool_server_connections = [
+        {
+            'url': f'{DIFY_API_BASE_URL}/mcp',
+            'type': 'mcp',
+            'auth_type': 'none',
+            'name': 'Diffy Skills',
+            'config': {'enable': True},
+        }
+    ]
 
 TOOL_SERVER_CONNECTIONS = tool_server_connections
 
