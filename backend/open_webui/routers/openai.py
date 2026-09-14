@@ -281,7 +281,23 @@ OPENAI_CONFIG_KEYS = {
 
 async def get_openai_config() -> dict:
     values = await Config.get_many(*OPENAI_CONFIG_KEYS.values())
-    return {field: values[storage_key] for field, storage_key in OPENAI_CONFIG_KEYS.items() if storage_key in values}
+    config_dict = {field: values[storage_key] for field, storage_key in OPENAI_CONFIG_KEYS.items() if storage_key in values}
+
+    from open_webui.config import (
+        OPENAI_API_BASE_URLS as ENV_URLS,
+        OPENAI_API_KEYS as ENV_KEYS,
+        ENABLE_OPENAI_API as ENV_ENABLE,
+    )
+
+    if (os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_BASE_URLS')):
+        current_urls = config_dict.get('OPENAI_API_BASE_URLS', [])
+        current_keys = config_dict.get('OPENAI_API_KEYS', [])
+        if not current_keys or not any(current_keys) or current_urls == ['https://api.openai.com/v1']:
+            config_dict['OPENAI_API_BASE_URLS'] = ENV_URLS
+            config_dict['OPENAI_API_KEYS'] = ENV_KEYS
+            config_dict['ENABLE_OPENAI_API'] = ENV_ENABLE
+
+    return config_dict
 
 
 async def get_openai_runtime_config() -> tuple[bool, list[str], list[str], dict]:
