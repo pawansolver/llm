@@ -286,10 +286,29 @@ async def get_openai_config() -> dict:
 
 async def get_openai_runtime_config() -> tuple[bool, list[str], list[str], dict]:
     values = await Config.get_many('openai.enable', 'openai.api_base_urls', 'openai.api_keys', 'openai.api_configs')
+    api_base_urls = values.get('openai.api_base_urls') or []
+    api_keys = values.get('openai.api_keys') or []
+
+    from open_webui.config import (
+        OPENAI_API_BASE_URLS as ENV_URLS,
+        OPENAI_API_KEYS as ENV_KEYS,
+        ENABLE_OPENAI_API as ENV_ENABLE,
+    )
+
+    if (os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_BASE_URLS')) and (
+        not api_keys or not any(api_keys) or api_base_urls == ['https://api.openai.com/v1']
+    ):
+        api_base_urls = ENV_URLS
+        api_keys = ENV_KEYS
+
+    enable_val = values.get('openai.enable')
+    if enable_val is None:
+        enable_val = ENV_ENABLE
+
     return (
-        values.get('openai.enable'),
-        values.get('openai.api_base_urls') or [],
-        values.get('openai.api_keys') or [],
+        enable_val,
+        api_base_urls,
+        api_keys,
         values.get('openai.api_configs') or {},
     )
 
