@@ -42,6 +42,31 @@ async def seed_registered_defaults():
     await Config.repair_flattened_dict_configs()
     await Config.seed_defaults(DEFAULT_CONFIG)
 
+    # Force-sync explicit API environment variables into database Config
+    env_overrides = {}
+    if os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEYS'):
+        env_overrides['openai.api_keys'] = OPENAI_API_KEYS
+    if os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_BASE_URLS'):
+        env_overrides['openai.api_base_urls'] = OPENAI_API_BASE_URLS
+    if 'ENABLE_OPENAI_API' in os.environ:
+        env_overrides['openai.enable'] = ENABLE_OPENAI_API
+    if 'ENABLE_OLLAMA_API' in os.environ:
+        env_overrides['ollama.enable'] = ENABLE_OLLAMA_API
+    if os.getenv('OLLAMA_BASE_URL') or os.getenv('OLLAMA_BASE_URLS'):
+        env_overrides['ollama.base_urls'] = OLLAMA_BASE_URLS
+    if os.getenv('AUDIO_STT_ENGINE'):
+        env_overrides['audio.stt.engine'] = AUDIO_STT_ENGINE
+    if os.getenv('AUDIO_STT_OPENAI_API_BASE_URL'):
+        env_overrides['audio.stt.openai.api_base_url'] = AUDIO_STT_OPENAI_API_BASE_URL
+    if os.getenv('AUDIO_STT_OPENAI_API_KEY'):
+        env_overrides['audio.stt.openai.api_key'] = AUDIO_STT_OPENAI_API_KEY
+    if os.getenv('AUDIO_STT_MODEL'):
+        env_overrides['audio.stt.model'] = AUDIO_STT_MODEL
+
+    if env_overrides:
+        log.info(f'Applying environment overrides to Config: {list(env_overrides.keys())}')
+        await Config.upsert(env_overrides)
+
 
 async def async_reset_config():
     await Config.clear()
@@ -329,11 +354,15 @@ if _openai_api_configs:
 
 # Get the actual OpenAI API key based on the base URL
 OPENAI_API_KEY = ''
-try:
-    OPENAI_API_KEY = OPENAI_API_KEYS[OPENAI_API_BASE_URLS.index('https://api.openai.com/v1')]
-except Exception:
-    pass
-OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
+if 'https://api.openai.com/v1' in OPENAI_API_BASE_URLS:
+    try:
+        OPENAI_API_KEY = OPENAI_API_KEYS[OPENAI_API_BASE_URLS.index('https://api.openai.com/v1')]
+    except Exception:
+        pass
+    OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
+elif len(OPENAI_API_BASE_URLS) > 0 and len(OPENAI_API_KEYS) > 0:
+    OPENAI_API_BASE_URL = OPENAI_API_BASE_URLS[0]
+    OPENAI_API_KEY = OPENAI_API_KEYS[0]
 
 
 ####################################
