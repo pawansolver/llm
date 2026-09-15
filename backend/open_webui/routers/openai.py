@@ -139,6 +139,32 @@ async def send_get_request(
         return None
 
 
+def _normalize_gemini_models(response):
+    """
+    Gemini's OpenAI-compatible /models endpoint returns model IDs with
+    a 'models/' prefix (e.g. 'models/gemini-2.5-flash') and uses 'display_name'
+    instead of 'name'. Normalize so Open WebUI shows them in the dropdown.
+    """
+    if not response or 'data' not in response:
+        return response
+
+    normalized = []
+    for model in response['data']:
+        model_id = model.get('id', '')
+        # Strip 'models/' prefix that Gemini uses
+        if model_id.startswith('models/'):
+            model_id = model_id[len('models/'):]
+        # Use Gemini's display_name if name is absent
+        display_name = model.get('display_name') or model.get('name') or model_id
+        normalized.append({
+            **model,
+            'id': model_id,
+            'name': display_name,
+        })
+
+    return {**response, 'data': normalized}
+
+
 async def get_models_request(
     request: Request = None,
     url=None,
@@ -148,7 +174,11 @@ async def get_models_request(
 ):
     if is_anthropic_url(url):
         return await get_anthropic_models(url, key, user=user)
-    return await send_get_request(request, f'{url}/models', key, user=user, config=config)
+    response = await send_get_request(request, f'{url}/models', key, user=user, config=config)
+    # Normalize Gemini model IDs (strip 'models/' prefix, use display_name)
+    if url and 'generativelanguage.googleapis.com' in url:
+        response = _normalize_gemini_models(response)
+    return response
 
 
 def openai_reasoning_model_handler(payload):
@@ -764,9 +794,11 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
 
                     if model_id and model_id not in models:
                         provider = model.get('provider', '')
+                        # Prefer display_name (Gemini-specific) > name > id
+                        display_name = model.get('display_name') or model.get('name') or model_id
                         merged = {
                             **model,
-                            'name': model.get('name', model_id),
+                            'name': display_name,
                             'owned_by': 'openai',
                             'openai': model,
                             'connection_type': model.get('connection_type', 'external'),
