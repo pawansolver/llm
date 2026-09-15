@@ -50,7 +50,7 @@ async def seed_registered_defaults():
     if os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEYS'):
         env_overrides['openai.api_keys'] = OPENAI_API_KEYS
     if os.getenv('OPENAI_API_BASE_URL') or os.getenv('OPENAI_API_BASE_URLS'):
-        env_overrides['openai.api_base_urls'] = OPENAI_API_BASE_URLS
+        env_overrides['openai.api_base_urls'] = [u.rstrip('/') for u in OPENAI_API_BASE_URLS]
     # Always sync enable flag when explicitly set in env (never let stale DB block it)
     env_overrides['openai.enable'] = ENABLE_OPENAI_API
     if 'ENABLE_OLLAMA_API' in os.environ:
@@ -351,9 +351,9 @@ OPENAI_API_BASE_URLS = os.getenv('OPENAI_API_BASE_URLS', '')
 OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS if OPENAI_API_BASE_URLS != '' else OPENAI_API_BASE_URL
 
 OPENAI_API_BASE_URLS = [
-    url.strip() if url != '' else 'https://api.openai.com/v1' for url in OPENAI_API_BASE_URLS.split(';')
+    url.strip().rstrip('/') if url != '' else 'https://api.openai.com/v1' for url in OPENAI_API_BASE_URLS.split(';')
 ]
-OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS
+OPENAI_API_BASE_URLS = [url.rstrip('/') for url in OPENAI_API_BASE_URLS if url]
 
 OPENAI_API_CONFIGS = {}
 _openai_api_configs = os.getenv('OPENAI_API_CONFIGS', '')
