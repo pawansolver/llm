@@ -1087,9 +1087,22 @@ async def chat_completion(
         model_info = None
         if not model_item.get('direct', False):
             if model_id not in request.app.state.MODELS:
-                raise Exception('Model not found')
+                alt_id = model_id[len('models/'):] if model_id and model_id.startswith('models/') else f'models/{model_id}'
+                if alt_id in request.app.state.MODELS:
+                    model_id = alt_id
+                    form_data['model'] = alt_id
+                else:
+                    await get_all_models(request, user=user)
+                    if model_id in request.app.state.MODELS:
+                        pass
+                    elif alt_id in request.app.state.MODELS:
+                        model_id = alt_id
+                        form_data['model'] = alt_id
 
-            model = request.app.state.MODELS[model_id]
+            if model_id in request.app.state.MODELS:
+                model = request.app.state.MODELS[model_id]
+            else:
+                model = {'id': model_id, 'name': model_id, 'owned_by': 'openai'}
             model_info = await Models.get_model_by_id(model_id)
 
             # Check if user has access to the model

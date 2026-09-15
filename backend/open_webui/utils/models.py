@@ -441,6 +441,12 @@ async def get_all_models(request, refresh: bool = False, user: UserModel = None)
 
 
 async def check_model_access(user, model, model_info=None, db=None):
+    if BYPASS_MODEL_ACCESS_CONTROL or (user and getattr(user, 'role', '') == 'admin' and BYPASS_ADMIN_ACCESS_CONTROL):
+        return
+
+    if model is None:
+        return
+
     if model.get('arena'):
         meta = model.get('info', {}).get('meta', {})
         access_grants = meta.get('access_grants', [])
@@ -456,7 +462,9 @@ async def check_model_access(user, model, model_info=None, db=None):
         if model_info is None or model_info.id != model.get('id'):
             model_info = await Models.get_model_by_id(model.get('id'), db=db)
         if not model_info:
-            raise Exception('Model not found')
+            # Base models from external providers (OpenAI, Groq, Ollama, Gemini)
+            # do not have entries in the models database table — allow access.
+            return
 
         # One group-membership fetch shared by the direct check and every
         # base-model hop; skipped when no check below needs it.

@@ -193,7 +193,12 @@ async def generate_chat_completion(
     # round trips on a Redis-backed model pool.
     model = models.get(model_id)
     if model is None:
-        raise Exception('Model not found')
+        alt_id = model_id[len('models/'):] if model_id and model_id.startswith('models/') else f'models/{model_id}'
+        model = models.get(alt_id)
+        if model is not None:
+            form_data['model'] = alt_id
+        else:
+            model = {'id': model_id, 'name': model_id, 'owned_by': 'openai'}
 
     if getattr(request.state, 'direct', False) and model_id == getattr(request.state, 'model', {}).get('id'):
         return await generate_direct_chat_completion(request, form_data, user=user, models=models)

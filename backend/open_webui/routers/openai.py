@@ -1317,7 +1317,8 @@ async def generate_chat_completion(
     form_data: dict,
     user=Depends(get_verified_user),
 ):
-    if not await Config.get('openai.enable'):
+    enable_openai_api, _, _, _ = await get_openai_runtime_config()
+    if not enable_openai_api:
         raise HTTPException(status_code=503, detail='OpenAI API is disabled')
 
     # NOTE: We intentionally do NOT use Depends(get_async_session) here.
@@ -1371,13 +1372,22 @@ async def generate_chat_completion(
         models = request.app.state.OPENAI_MODELS
     model = models.get(model_id)
 
+    if not model and model_id:
+        alt_id = model_id[len('models/'):] if model_id.startswith('models/') else f'models/{model_id}'
+        model = models.get(alt_id)
+
     if model:
-        idx = model['urlIdx']
+        idx = model.get('urlIdx', 0)
     else:
-        raise HTTPException(
-            status_code=404,
-            detail=ERROR_MESSAGES.MODEL_NOT_FOUND(),
-        )
+        # Fallback to first available connection instead of failing with 404
+        _, api_base_urls, _, _ = await get_openai_runtime_config()
+        if api_base_urls:
+            idx = 0
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=ERROR_MESSAGES.MODEL_NOT_FOUND(),
+            )
 
     url, key, api_config = await get_openai_connection(idx)
 
