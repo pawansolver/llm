@@ -174,9 +174,14 @@ async def get_models_request(
 ):
     if is_anthropic_url(url):
         return await get_anthropic_models(url, key, user=user)
-    response = await send_get_request(request, f'{url}/models', key, user=user, config=config)
+    clean_url = url.rstrip('/') if url else ''
+    response = await send_get_request(request, f'{clean_url}/models', key, user=user, config=config)
     # Normalize Gemini model IDs (strip 'models/' prefix, use display_name)
-    if url and 'generativelanguage.googleapis.com' in url:
+    if clean_url and ('generativelanguage.googleapis.com' in clean_url or 'googleapis.com' in clean_url):
+        response = _normalize_gemini_models(response)
+    elif isinstance(response, dict) and any(
+        isinstance(m, dict) and m.get('id', '').startswith('models/') for m in (response.get('data') or [])
+    ):
         response = _normalize_gemini_models(response)
     return response
 
@@ -349,10 +354,10 @@ async def get_openai_config() -> dict:
             or not any(current_keys)
             or current_urls == ['https://api.openai.com/v1']
             or current_keys != ENV_KEYS
-            or current_urls != ENV_URLS
+            or [u.rstrip('/') for u in current_urls] != [u.rstrip('/') for u in ENV_URLS]
         )
         if should_override:
-            config_dict['OPENAI_API_BASE_URLS'] = ENV_URLS
+            config_dict['OPENAI_API_BASE_URLS'] = [u.rstrip('/') for u in ENV_URLS]
             config_dict['OPENAI_API_KEYS'] = ENV_KEYS
             config_dict['ENABLE_OPENAI_API'] = ENV_ENABLE
 
@@ -390,6 +395,9 @@ async def get_openai_runtime_config() -> tuple[bool, list[str], list[str], dict]
     # If env explicitly sets ENABLE_OPENAI_API=true, never let a stale DB false block it
     if os.getenv('ENABLE_OPENAI_API', '').lower() == 'true':
         enable_val = True
+
+    # Strip any trailing slashes from all base URLs to prevent double-slash (//models) 404s
+    api_base_urls = [u.rstrip('/') for u in api_base_urls if u]
 
     return (
         enable_val,
@@ -866,7 +874,7 @@ async def get_models(request: Request, url_idx: int | None = None, user=Depends(
                         raise Exception('Failed to connect to Anthropic API')
                 else:
                     async with session.get(
-                        f'{url}/models',
+                        f'{url.rstrip("/")}/models',
                         headers=headers,
                         cookies=cookies,
                         ssl=AIOHTTP_CLIENT_SESSION_SSL,
@@ -978,7 +986,7 @@ async def verify_connection(
                 return result
             else:
                 async with session.get(
-                    f'{url}/models',
+                    f'{url.rstrip("/")}/models',
                     headers=headers,
                     cookies=cookies,
                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
@@ -1437,9 +1445,9 @@ async def generate_chat_completion(
     else:
         if is_responses:
             payload = convert_to_responses_payload(payload)
-            request_url = f'{url}/responses'
+            request_url = f'{url.rstrip("/")}/responses'
         else:
-            request_url = f'{url}/chat/completions'
+            request_url = f'{url.rstrip("/")}/chat/completions'
     requested_model = payload.get('model')
     # For Chat Completions, strip image parts from multimodal tool messages
     # (Chat Completions doesn't support images in tool content).
@@ -1610,7 +1618,7 @@ async def embeddings(request: Request, form_data: dict, user):
             embeddings_url = f'{url}/openai/deployments/{model}/embeddings?api-version={api_version}'
             headers['api-version'] = api_version
     else:
-        embeddings_url = f'{url}/embeddings'
+        embeddings_url = f'{url.rstrip("/")}/embeddings'
     requested_model = form_data.get('model')
 
     try:
@@ -1738,7 +1746,7 @@ async def responses(
                 model = _sanitize_model_for_url(payload.get('model', ''))
                 request_url = f'{url}/openai/deployments/{model}/responses?api-version={api_version}'
         else:
-            request_url = f'{url}/responses'
+            request_url = f'{url.rstrip("/")}/responses'
 
         session = await get_session()
         r = await session.request(
@@ -1860,7 +1868,7 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
 
                 request_url = f'{url}/{path}?api-version={api_version}'
         else:
-            request_url = f'{url}/{path}'
+            request_url = f'{url.rstrip("/")}/{path}'
 
         session = await get_session()
         r = await session.request(

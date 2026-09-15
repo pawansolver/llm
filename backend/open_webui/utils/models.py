@@ -49,8 +49,14 @@ async def fetch_ollama_models(request: Request, user: UserModel = None):
 
 
 async def fetch_openai_models(request: Request, user: UserModel = None):
-    openai_response = await openai.get_all_models(request, user=user)
-    return openai_response['data']
+    try:
+        openai_response = await openai.get_all_models(request, user=user)
+        if isinstance(openai_response, dict):
+            return openai_response.get('data', [])
+        return []
+    except Exception as e:
+        log.error(f'Error fetching OpenAI models: {e}')
+        return []
 
 
 async def get_all_base_models(request: Request, user: UserModel = None):
@@ -525,9 +531,9 @@ async def get_filtered_models(models, user, db=None):
                     or model['id'] in accessible_model_ids
                 ):
                     filtered_models.append(model)
-            elif user.role == 'admin':
-                # No DB entry means no access control configured yet;
-                # only admins can see unconfigured models.
+            else:
+                # No DB entry means no access control restriction configured;
+                # available to all users.
                 filtered_models.append(model)
 
         return filtered_models

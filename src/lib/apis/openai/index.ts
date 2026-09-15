@@ -77,7 +77,8 @@ export const updateOpenAIConfig = async (token: string = '', config: OpenAIConfi
 export const getOpenAIModelsDirect = async (url: string, key: string) => {
 	let error = null;
 
-	const res = await fetch(`${url}/models`, {
+	const cleanUrl = url.replace(/\/+$/, '');
+	const res = await fetch(`${cleanUrl}/models`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json',
