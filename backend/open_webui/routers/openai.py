@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import platform
 import re
 from typing import Optional
@@ -80,7 +81,16 @@ log = logging.getLogger(__name__)
 # in ZlibError.  See https://github.com/aio-libs/aiohttp/issues/4462.
 _STRIP_PROXY_HEADERS = frozenset({'Content-Encoding', 'Content-Length', 'Transfer-Encoding'})
 _MODEL_LIST_TIMEOUT = aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST)
-_UNSUPPORTED_OPENAI_MODEL_KEYWORDS = ('babbage', 'dall-e', 'davinci', 'embedding', 'tts', 'whisper')
+_UNSUPPORTED_OPENAI_MODEL_KEYWORDS = (
+    'babbage',
+    'dall-e',
+    'davinci',
+    'embedding',
+    'tts',
+    'whisper',
+    'prompt-guard',
+    'orpheus',
+)
 
 
 def _clean_proxy_headers(raw_headers) -> dict:
@@ -737,8 +747,8 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
                 for model in model_list:
                     model_id = model.get('id') or model.get('name')
 
-                    if hostname == 'api.openai.com' and not is_supported_openai_models(model_id):
-                        # Skip unwanted OpenAI models
+                    if hostname in ('api.openai.com', 'api.groq.com') and not is_supported_openai_models(model_id):
+                        # Skip unwanted OpenAI/Groq models (whisper, tts, embeddings, prompt-guard)
                         continue
 
                     if model_id and model_id not in models:

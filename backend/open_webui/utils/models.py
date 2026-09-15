@@ -54,10 +54,11 @@ async def fetch_openai_models(request: Request, user: UserModel = None):
 
 
 async def get_all_base_models(request: Request, user: UserModel = None):
-    from open_webui.config import ENABLE_OPENAI_API, ENABLE_OLLAMA_API
+    from open_webui.config import ENABLE_OLLAMA_API
+    from open_webui.routers.openai import get_openai_runtime_config
 
-    config = await Config.get_many('openai.enable', 'ollama.enable')
-    enable_openai = config.get('openai.enable') if config.get('openai.enable') is not None else ENABLE_OPENAI_API
+    config = await Config.get_many('ollama.enable')
+    enable_openai, _, _, _ = await get_openai_runtime_config()
     enable_ollama = config.get('ollama.enable') if config.get('ollama.enable') is not None else ENABLE_OLLAMA_API
 
     openai_task = fetch_openai_models(request, user) if enable_openai else asyncio.sleep(0, result=[])
