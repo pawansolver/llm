@@ -118,6 +118,8 @@ async def send_get_request(
             else:
                 headers = {
                     **({'Authorization': f'Bearer {key}'} if key else {}),
+                    # Bypass Cloudflare bot detection on api.groq.com
+                    **({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'} if url and 'api.groq.com' in url else {}),
                 }
                 cookies = None
 
@@ -187,6 +189,15 @@ async def get_headers_and_cookies(
                 'X-Title': 'Open WebUI',
             }
             if 'openrouter.ai' in url
+            else {}
+        ),
+        # Groq's Cloudflare protection (error 1010) blocks requests without a
+        # browser-like User-Agent. Add one specifically for api.groq.com.
+        **(
+            {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
+            if 'api.groq.com' in url
             else {}
         ),
     }
