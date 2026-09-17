@@ -126,7 +126,7 @@ async def get_tools(
     for server in await Config.get('tool_server.connections', []):
         if server.get('type', 'openapi') == 'mcp' and (server.get('config') or {}).get('enable'):
             info = server.get('info') or {}
-            server_id = info.get('id')
+            server_id = info.get('id') or server.get('id') or server.get('name', 'diffy').lower().replace(' ', '_')
             auth_type = server.get('auth_type', 'none')
 
             session_token = None
@@ -140,7 +140,7 @@ async def get_tools(
 
             server_config = server.get('config') or {}
 
-            tool_id = f'server:mcp:{info.get("id")}'
+            tool_id = f'server:mcp:{server_id}'
             server_access_grants[tool_id] = server_config.get('access_grants', [])
 
             tools.append(

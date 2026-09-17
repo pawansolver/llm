@@ -400,6 +400,8 @@ except Exception as e:
 if not tool_server_connections and DIFY_API_BASE_URL:
     tool_server_connections = [
         {
+            'id': 'diffy',
+            'info': {'id': 'diffy', 'name': 'Diffy Skills'},
             'url': f'{DIFY_API_BASE_URL}/mcp',
             'type': 'mcp',
             'auth_type': 'none',
@@ -407,6 +409,16 @@ if not tool_server_connections and DIFY_API_BASE_URL:
             'config': {'enable': True},
         }
     ]
+
+# Ensure every MCP connection has id and info.id for reliable auto-attaching
+for conn in tool_server_connections:
+    if isinstance(conn, dict) and conn.get('type') == 'mcp':
+        conn_id = conn.get('id') or (conn.get('info') or {}).get('id') or conn.get('name', 'diffy').lower().replace(' ', '_')
+        conn['id'] = conn_id
+        if not conn.get('info') or not isinstance(conn.get('info'), dict):
+            conn['info'] = {'id': conn_id, 'name': conn.get('name', 'Diffy Skills')}
+        elif not conn['info'].get('id'):
+            conn['info']['id'] = conn_id
 
 TOOL_SERVER_CONNECTIONS = tool_server_connections
 
