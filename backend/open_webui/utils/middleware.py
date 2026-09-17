@@ -2209,7 +2209,16 @@ async def connect_mcp_server(
     """
     mcp_server_connection = None
     for server_connection in await Config.get('tool_server.connections', []):
-        if server_connection.get('type', '') == 'mcp' and (server_connection.get('info') or {}).get('id') == server_id:
+        conn_id = (
+            (server_connection.get('info') or {}).get('id')
+            or server_connection.get('id')
+            or server_connection.get('name', '').lower().replace(' ', '_')
+        )
+        if server_connection.get('type', '') == 'mcp' and (
+            conn_id == server_id
+            or server_id in (conn_id, 'diffy', 'skills')
+            or server_connection.get('url', '').rstrip('/').endswith(f'/{server_id}')
+        ):
             mcp_server_connection = server_connection
             break
 
@@ -2780,11 +2789,17 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         # Auto-attach MCP tool servers (e.g. Diffy) when default skills prompt is enabled
         if enable_skills_prompt:
             tool_server_connections = await Config.get('tool_server.connections', []) or []
-            mcp_server_ids = [
-                (c.get('info') or {}).get('id')
-                for c in tool_server_connections
-                if c.get('type', '') == 'mcp' and (c.get('info') or {}).get('id')
-            ]
+            mcp_server_ids = []
+            for c in tool_server_connections:
+                if c.get('type', '') == 'mcp' and (c.get('config') or {}).get('enable', True):
+                    s_id = (
+                        (c.get('info') or {}).get('id')
+                        or c.get('id')
+                        or c.get('name', '').lower().replace(' ', '_')
+                        or 'diffy'
+                    )
+                    if s_id and s_id not in mcp_server_ids:
+                        mcp_server_ids.append(s_id)
             if mcp_server_ids:
                 if tool_ids is None:
                     tool_ids = []
@@ -5043,6 +5058,12 @@ async def streaming_chat_response_handler(response, ctx):
                         if params is None:
                             return {}, None, None, None, False
                         tool = tools.get(name)
+                        if not tool:
+                            # Fallback: match without prefix (e.g. 'list_skills' matches 'diffy_list_skills')
+                            for t_name, t_val in tools.items():
+                                if t_name.endswith(f'_{name}') or name.endswith(f'_{t_name}'):
+                                    tool = t_val
+                                    break
                         if not tool:
                             return params, f'Error: Tool "{name}" not found.', None, None, False
                         spec = tool.get('spec', {})
