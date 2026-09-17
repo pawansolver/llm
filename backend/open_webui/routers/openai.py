@@ -1394,6 +1394,15 @@ async def generate_chat_completion(
     prefix_id = api_config.get('prefix_id', None)
     payload['model'] = strip_provider_model_prefix(payload['model'], prefix_id)
 
+    # Gemini model safety fallback: ensure valid model name when routing to Google
+    if url and 'generativelanguage.googleapis.com' in url:
+        cur_model = payload.get('model', '')
+        if cur_model.startswith('openai/'):
+            cur_model = cur_model[len('openai/'):]
+        if not cur_model.startswith('gemini-') and not cur_model.startswith('models/gemini-'):
+            cur_model = 'gemini-2.5-flash'
+        payload['model'] = cur_model
+
     # Add user info to the payload if the model is a pipeline
     if 'pipeline' in model and model.get('pipeline'):
         payload['user'] = {
