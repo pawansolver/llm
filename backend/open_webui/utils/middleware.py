@@ -2242,7 +2242,7 @@ async def connect_mcp_server(
     client = MCPClient()
     # Retry logic for Render free tier cold starts (server wakes up slowly)
     mcp_url = mcp_server_connection.get('url', '')
-    max_retries = 3
+    max_retries = 2  # Reduced from 3 to limit blocking time
     last_connect_error = None
     for attempt in range(1, max_retries + 1):
         try:
@@ -2259,7 +2259,7 @@ async def connect_mcp_server(
             )
             if attempt < max_retries:
                 import asyncio as _asyncio
-                await _asyncio.sleep(5)  # wait 5s for Render cold start
+                await _asyncio.sleep(1)  # Reduced from 5s to 1s to avoid blocking chat responses
     if last_connect_error:
         raise last_connect_error
 
