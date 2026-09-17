@@ -90,6 +90,7 @@ _UNSUPPORTED_OPENAI_MODEL_KEYWORDS = (
     'whisper',
     'prompt-guard',
     'orpheus',
+    'safeguard',
 )
 
 
