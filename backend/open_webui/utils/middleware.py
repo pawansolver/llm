@@ -4567,6 +4567,11 @@ async def streaming_chat_response_handler(response, ctx):
                                                         'arguments'
                                                     )
 
+                                                    if delta_tool_call.get('id'):
+                                                        current_response_tool_call['id'] = delta_tool_call['id']
+                                                    if delta_tool_call.get('extra_content'):
+                                                        current_response_tool_call['extra_content'] = delta_tool_call['extra_content']
+
                                                     if delta_name:
                                                         current_response_tool_call['function']['name'] = delta_name
 
@@ -4590,16 +4595,17 @@ async def streaming_chat_response_handler(response, ctx):
                                             for tc in response_tool_calls:
                                                 call_id = tc.get('id', '')
                                                 func = tc.get('function', {})
-                                                pending_fc_items.append(
-                                                    {
-                                                        'type': 'function_call',
-                                                        'id': call_id or output_id('fc'),
-                                                        'call_id': call_id,
-                                                        'name': func.get('name', ''),
-                                                        'arguments': func.get('arguments', '{}'),
-                                                        'status': 'in_progress',
-                                                    }
-                                                )
+                                                pending_fc_item = {
+                                                    'type': 'function_call',
+                                                    'id': call_id or output_id('fc'),
+                                                    'call_id': call_id,
+                                                    'name': func.get('name', ''),
+                                                    'arguments': func.get('arguments', '{}'),
+                                                    'status': 'in_progress',
+                                                }
+                                                if tc.get('extra_content'):
+                                                    pending_fc_item['extra_content'] = tc['extra_content']
+                                                pending_fc_items.append(pending_fc_item)
 
                                             data = {
                                                 'output': full_output() + pending_fc_items,
@@ -4963,6 +4969,7 @@ async def streaming_chat_response_handler(response, ctx):
                                                 arguments if isinstance(arguments, str) else json.dumps(arguments)
                                             ),
                                         },
+                                        **({'extra_content': item['extra_content']} if item.get('extra_content') else {}),
                                     }
                                 )
                         if responses_api_tool_calls:
@@ -5021,6 +5028,7 @@ async def streaming_chat_response_handler(response, ctx):
                                     'name': func.get('name', ''),
                                     'arguments': func.get('arguments', '{}'),
                                     'status': 'in_progress',
+                                    **({'extra_content': tc['extra_content']} if tc.get('extra_content') else {}),
                                 }
                             )
 
@@ -5190,6 +5198,8 @@ async def streaming_chat_response_handler(response, ctx):
                                 item['status'] = 'completed'
                                 # Update arguments with parsed/sanitized version
                                 item['arguments'] = tc.get('function', {}).get('arguments', '{}')
+                                if tc.get('extra_content') and 'extra_content' not in item:
+                                    item['extra_content'] = tc.get('extra_content')
                                 break
 
                     for result in results:

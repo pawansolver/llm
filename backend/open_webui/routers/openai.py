@@ -1184,14 +1184,15 @@ def convert_to_responses_payload(payload: dict) -> dict:
             # Convert each tool_call to a function_call input item
             for tool_call in msg['tool_calls']:
                 func = tool_call.get('function', {})
-                input_items.append(
-                    {
-                        'type': 'function_call',
-                        'call_id': tool_call.get('id', ''),
-                        'name': func.get('name', ''),
-                        'arguments': func.get('arguments', '{}'),
-                    }
-                )
+                fc_item = {
+                    'type': 'function_call',
+                    'call_id': tool_call.get('id', ''),
+                    'name': func.get('name', ''),
+                    'arguments': func.get('arguments', '{}'),
+                }
+                if tool_call.get('extra_content'):
+                    fc_item['extra_content'] = tool_call['extra_content']
+                input_items.append(fc_item)
             continue
 
         # Handle tool result messages
@@ -1400,7 +1401,7 @@ async def generate_chat_completion(
         if cur_model.startswith('openai/'):
             cur_model = cur_model[len('openai/'):]
         if not cur_model.startswith('gemini-') and not cur_model.startswith('models/gemini-'):
-            cur_model = 'gemini-2.5-flash'
+            cur_model = 'gemini-3.1-flash-lite'
         payload['model'] = cur_model
 
     # Add user info to the payload if the model is a pipeline
