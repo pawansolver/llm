@@ -78,6 +78,12 @@ async def seed_registered_defaults():
     elif (not current_default_models or str(current_default_models).strip() in ('', 'None')) and DEFAULT_MODELS:
         env_overrides['ui.default_models'] = DEFAULT_MODELS
 
+    # Always force-sync skills prompt settings from env so .env changes take effect immediately
+    if os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT') is not None:
+        env_overrides['skills.default_prompt.enable'] = ENABLE_DEFAULT_SKILLS_PROMPT
+    if os.getenv('DEFAULT_SKILLS_USER_PROMPT'):
+        env_overrides['skills.default_prompt_template'] = DEFAULT_SKILLS_USER_PROMPT
+
     if env_overrides:
         log.info(f'Applying environment overrides to Config: {list(env_overrides.keys())}')
         await Config.upsert(env_overrides)
@@ -331,7 +337,7 @@ DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.
 ENABLE_DEFAULT_SKILLS_PROMPT = os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT', 'True').lower() == 'true'
 DEFAULT_SKILLS_USER_PROMPT = os.getenv(
     'DEFAULT_SKILLS_USER_PROMPT',
-    '[INSTRUCTION: You have access to a dynamic skills library via MCP tools (list_skills, get_skill, list_skill_files). For this user request, first discover available skills with list_skills, select relevant skills, and retrieve instructions with get_skill before answering. If no skill matches or get_skill returns SKILL_NOT_FOUND, reply strictly with: "i have not record with your answer". Never answer from general knowledge when no skill matches.]'
+    'If you have MCP skills tools available, call list_skills and get_skill to find relevant instructions. If no matching skill is found or tools are unavailable, answer helpfully from your knowledge.'
 )
 
 
