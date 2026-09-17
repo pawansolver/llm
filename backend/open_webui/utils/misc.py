@@ -356,16 +356,17 @@ def convert_output_to_messages(
             # Ensure arguments is always a JSON string
             if not isinstance(arguments, str):
                 arguments = json.dumps(arguments)
-            pending_tool_calls.append(
-                {
-                    'id': item.get('call_id', ''),
-                    'type': 'function',
-                    'function': {
-                        'name': item.get('name', ''),
-                        'arguments': arguments,
-                    },
-                }
-            )
+            tool_call = {
+                'id': item.get('call_id', ''),
+                'type': 'function',
+                'function': {
+                    'name': item.get('name', ''),
+                    'arguments': arguments,
+                },
+            }
+            if item.get('extra_content'):
+                tool_call['extra_content'] = item['extra_content']
+            pending_tool_calls.append(tool_call)
 
         elif item_type == 'function_call_output':
             # Flush any pending content/tool_calls before adding tool result

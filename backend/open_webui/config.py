@@ -1694,7 +1694,7 @@ ENABLE_PASSWORD_AUTH = os.getenv('ENABLE_PASSWORD_AUTH', 'True').lower() == 'tru
 
 DEFAULT_LOCALE = os.getenv('DEFAULT_LOCALE', '')
 
-DEFAULT_MODELS = os.getenv('DEFAULT_MODELS', 'gemini-2.5-flash')
+DEFAULT_MODELS = os.getenv('DEFAULT_MODELS', 'gemini-3.1-flash-lite')
 
 DEFAULT_PINNED_MODELS = os.getenv('DEFAULT_PINNED_MODELS', None)
 
