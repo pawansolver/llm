@@ -690,7 +690,7 @@ _TTS_ENGINES = {
 async def speech(request: Request, user=Depends(get_verified_user)):
     await speech_cache.cleanup()
     engine = await Config.get('audio.tts.engine')
-    if engine == '':
+    if engine in ('', 'web'):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ERROR_MESSAGES.NOT_FOUND,

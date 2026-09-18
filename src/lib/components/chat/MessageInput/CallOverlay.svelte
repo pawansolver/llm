@@ -84,14 +84,14 @@
 	};
 
 	const getTtsEngine = () => {
-		const engine =
+		let engine =
 			$settings?.audio?.tts?.engine ?? ($config as any)?.audio?.tts?.engine ?? '';
+		if (engine === 'web') engine = '';
 		// Browser SpeechSynthesis is non-functional in Android WebView — fall
 		// back to the OpenAI-compatible server engine so responses are spoken.
 		if (engine === '' && isAndroidWebView()) {
-			return ($config as any)?.audio?.tts?.engine !== ''
-				? (($config as any)?.audio?.tts?.engine ?? 'openai')
-				: 'openai';
+			const serverEngine = ($config as any)?.audio?.tts?.engine;
+			return serverEngine && serverEngine !== 'web' ? serverEngine : 'openai';
 		}
 		return engine;
 	};
@@ -394,6 +394,9 @@
 					? resolve()
 					: reject(new Error(event.error));
 			};
+			if (speechSynthesis.paused) {
+				speechSynthesis.resume();
+			}
 			speechSynthesis.speak(currentUtterance);
 		});
 	};
@@ -407,7 +410,7 @@
 		}
 		if (conversationState !== 'speaking') setState('speaking');
 		const engine = getTtsEngine();
-		if (engine === '') {
+		if (engine === '' || engine === 'web') {
 			await speakBrowserSentence(content, signal);
 			return;
 		}
