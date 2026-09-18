@@ -80,6 +80,15 @@ class GroqAdapter(BaseProviderAdapter):
         prepared = copy.deepcopy(payload)
         # Groq does not support stream_options
         prepared.pop("stream_options", None)
+
+        # Groq free tier enforces strict 1000 OTPM (output tokens per minute) limit on qwen models.
+        # Cap max_tokens to 850 so Groq pre-flight check never exceeds the 1000 token limit.
+        model = str(prepared.get("model", "")).lower()
+        if "qwen" in model:
+            cur_max = prepared.get("max_tokens")
+            if cur_max is None or cur_max > 850:
+                prepared["max_tokens"] = 850
+
         return prepared
 
     def parse_response(self, response_data: dict[str, Any]) -> tuple[str, list[NormalizedToolCall]]:
