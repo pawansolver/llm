@@ -298,9 +298,16 @@ def convert_output_to_messages(
         if not pending_content and not pending_tool_calls and not pending_reasoning and not pending_reasoning_details:
             return
 
+        content_text = '\n'.join(pending_content) if pending_content else None
+        # When tool_calls are present and there is no text content, content must be None
+        # (serializing to null in JSON), NOT empty string "".
+        # Groq and Gemini return HTTP 400 if content is "" when tool_calls is provided.
+        if not pending_tool_calls and content_text is None:
+            content_text = ''
+
         message = {
             'role': 'assistant',
-            'content': '\n'.join(pending_content) if pending_content else '',
+            'content': content_text,
             **({'tool_calls': pending_tool_calls} if pending_tool_calls else {}),
         }
 
@@ -356,8 +363,11 @@ def convert_output_to_messages(
             # Ensure arguments is always a JSON string
             if not isinstance(arguments, str):
                 arguments = json.dumps(arguments)
+            call_id = item.get('call_id') or item.get('id')
+            if not call_id:
+                call_id = f'call_{uuid.uuid4().hex[:8]}'
             tool_call = {
-                'id': item.get('call_id', ''),
+                'id': call_id,
                 'type': 'function',
                 'function': {
                     'name': item.get('name', ''),
@@ -385,21 +395,22 @@ def convert_output_to_messages(
                     if url:
                         image_urls.append(url)
 
+            tool_call_id = item.get('call_id') or item.get('id') or ''
             if flatten_tool_images:
                 messages.append(
                     {
                         'role': 'tool',
-                        'tool_call_id': item.get('call_id', ''),
+                        'tool_call_id': tool_call_id,
                         'content': content,
                     }
                 )
-                if item.get('call_id') in function_call_ids:
+                if tool_call_id in function_call_ids:
                     pending_tool_image_urls.extend(image_urls)
             elif image_urls:
                 messages.append(
                     {
                         'role': 'tool',
-                        'tool_call_id': item.get('call_id', ''),
+                        'tool_call_id': tool_call_id,
                         'content': [
                             {'type': 'input_text', 'text': content},
                             *[{'type': 'input_image', 'image_url': url} for url in image_urls],
@@ -410,7 +421,7 @@ def convert_output_to_messages(
                 messages.append(
                     {
                         'role': 'tool',
-                        'tool_call_id': item.get('call_id', ''),
+                        'tool_call_id': tool_call_id,
                         'content': content,
                     }
                 )

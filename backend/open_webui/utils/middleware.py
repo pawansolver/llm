@@ -99,6 +99,7 @@ from open_webui.utils.filter import (
 
 from open_webui.utils.json_codec import JSONCodec
 from open_webui.utils.mcp.client import MCPClient
+from open_webui.providers import parse_and_repair_json, resolve_mcp_tool_name, debug_trace
 from open_webui.utils.memory import add_memory_context, review_memory_after_turn
 from open_webui.utils.misc import (
     add_or_update_system_message,
@@ -2853,16 +2854,26 @@ async def process_chat_payload(request, form_data, user, metadata, model):
 
                             tool_function = await make_tool_function(client, tool_spec['name'])
 
-                            mcp_tools_dict[f'{server_id}_{tool_spec["name"]}'] = {
+                            normalized_name = f'{server_id}__{tool_spec["name"]}'
+                            legacy_name = f'{server_id}_{tool_spec["name"]}'
+                            bare_name = tool_spec["name"]
+
+                            mcp_tool_entry = {
                                 'spec': {
                                     **tool_spec,
-                                    'name': f'{server_id}_{tool_spec["name"]}',
+                                    'name': normalized_name,
                                 },
                                 'callable': tool_function,
                                 'type': 'mcp',
                                 'client': client,
                                 'direct': False,
+                                'mcp_server': server_id,
+                                'mcp_tool': tool_spec['name'],
                             }
+                            mcp_tools_dict[normalized_name] = mcp_tool_entry
+                            mcp_tools_dict[legacy_name] = mcp_tool_entry
+                            if bare_name not in mcp_tools_dict:
+                                mcp_tools_dict[bare_name] = mcp_tool_entry
                     except Exception as e:
                         log.debug(e)
                         if event_emitter:
@@ -2992,9 +3003,15 @@ async def process_chat_payload(request, form_data, user, metadata, model):
 
             if metadata.get('params', {}).get('function_calling') != 'legacy':
                 # If the function calling is native, then call the tools function calling handler
-                form_data['tools'] = [
-                    {'type': 'function', 'function': tool.get('spec', {})} for tool in tools_dict.values()
-                ]
+                seen_tool_names = set()
+                unique_tools = []
+                for tool in tools_dict.values():
+                    spec = tool.get('spec', {})
+                    name = spec.get('name')
+                    if name and name not in seen_tool_names:
+                        seen_tool_names.add(name)
+                        unique_tools.append({'type': 'function', 'function': spec})
+                form_data['tools'] = unique_tools
                 if inlet_filter_tools:
                     form_data['tools'].extend(inlet_filter_tools)
             else:
@@ -4549,7 +4566,9 @@ async def streaming_chat_response_handler(response, ctx):
                                                         break
 
                                                 if current_response_tool_call is None:
-                                                    # Add the new tool call
+                                                    # Add the new tool call (ensure valid ID)
+                                                    if not delta_tool_call.get('id'):
+                                                        delta_tool_call['id'] = f'call_{uuid4().hex[:8]}'
                                                     delta_tool_call.setdefault('function', {})
                                                     delta_tool_call['function'].setdefault('name', '')
                                                     delta_arguments = delta_tool_call['function'].get('arguments')
@@ -4569,6 +4588,8 @@ async def streaming_chat_response_handler(response, ctx):
 
                                                     if delta_tool_call.get('id'):
                                                         current_response_tool_call['id'] = delta_tool_call['id']
+                                                    elif not current_response_tool_call.get('id'):
+                                                        current_response_tool_call['id'] = f'call_{uuid4().hex[:8]}'
                                                     if delta_tool_call.get('extra_content'):
                                                         current_response_tool_call['extra_content'] = delta_tool_call['extra_content']
 
@@ -5047,16 +5068,10 @@ async def streaming_chat_response_handler(response, ctx):
 
                     def parse_tool_params(tool_call):
                         tool_args = tool_call.get('function', {}).get('arguments', '{}')
-                        params = {}
-                        if tool_args and tool_args.strip():
-                            try:
-                                params = JSONCodec.loads(tool_args)
-                            except Exception:
-                                try:
-                                    params = ast.literal_eval(tool_args)
-                                except Exception as e:
-                                    log.debug(e)
-                                    return None
+                        params, err = parse_and_repair_json(tool_args)
+                        if params is None:
+                            log.warning('Could not parse or repair tool arguments: %s (%s)', tool_args, err)
+                            return None
                         tool_call.setdefault('function', {})['arguments'] = json.dumps(params)
                         return params
 
@@ -5065,13 +5080,8 @@ async def streaming_chat_response_handler(response, ctx):
                         params = parse_tool_params(tool_call)
                         if params is None:
                             return {}, None, None, None, False
-                        tool = tools.get(name)
-                        if not tool:
-                            # Fallback: match without prefix (e.g. 'list_skills' matches 'diffy_list_skills')
-                            for t_name, t_val in tools.items():
-                                if t_name.endswith(f'_{name}') or name.endswith(f'_{t_name}'):
-                                    tool = t_val
-                                    break
+
+                        resolved_name, tool = resolve_mcp_tool_name(name, tools)
                         if not tool:
                             return params, f'Error: Tool "{name}" not found.', None, None, False
                         spec = tool.get('spec', {})
@@ -5086,7 +5096,7 @@ async def streaming_chat_response_handler(response, ctx):
                                         'type': 'execute:tool',
                                         'data': {
                                             'id': str(uuid4()),
-                                            'name': name,
+                                            'name': resolved_name or name,
                                             'params': params,
                                             'server': tool.get('server', {}),
                                             'session_id': metadata.get('session_id'),
@@ -5123,9 +5133,16 @@ async def streaming_chat_response_handler(response, ctx):
                     )
 
                     for tool_call in response_tool_calls:
-                        tool_call_id = tool_call.get('id', '')
+                        tool_call_id = tool_call.get('id') or f'call_{uuid4().hex[:8]}'
+                        tool_call['id'] = tool_call_id
                         tool_function_name = tool_call.get('function', {}).get('name', '')
                         tool_function_params, tool_result, tool, tool_type, direct_tool = tool_results[id(tool_call)]
+                        debug_trace(
+                            'TOOL CALL',
+                            id=tool_call_id,
+                            name=tool_function_name,
+                            params=tool_function_params,
+                        )
                         if tool_result is None:
                             results.append(
                                 {
@@ -5137,6 +5154,13 @@ async def streaming_chat_response_handler(response, ctx):
                                 }
                             )
                             continue
+
+                        debug_trace(
+                            'MCP RESULT',
+                            id=tool_call_id,
+                            name=tool_function_name,
+                            success=(tool_result is not None and not str(tool_result).startswith('Error:')),
+                        )
 
                         tool_result, tool_result_files, tool_result_embeds = await process_tool_result(
                             request,
