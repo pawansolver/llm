@@ -4554,8 +4554,22 @@ async def streaming_chat_response_handler(response, ctx):
 
                                     delta_tool_calls = delta.get('tool_calls', None)
                                     if delta_tool_calls:
-                                        for delta_tool_call in delta_tool_calls:
+                                        for idx_in_delta, delta_tool_call in enumerate(delta_tool_calls):
                                             tool_call_index = delta_tool_call.get('index')
+                                            if tool_call_index is None:
+                                                # Fallback for Gemini and providers that omit index in delta tool calls
+                                                call_id = delta_tool_call.get('id')
+                                                matching_idx = None
+                                                if call_id:
+                                                    for rtc in response_tool_calls:
+                                                        if rtc.get('id') == call_id:
+                                                            matching_idx = rtc.get('index')
+                                                            break
+                                                if matching_idx is not None:
+                                                    tool_call_index = matching_idx
+                                                else:
+                                                    tool_call_index = len(response_tool_calls)
+                                                delta_tool_call['index'] = tool_call_index
 
                                             if tool_call_index is not None:
                                                 # Check if the tool call already exists
