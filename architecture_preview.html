@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fluAi + Diffy MCP — Deep Architecture & Workflow Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(18, 24, 40, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #00f2fe;
+      --accent-blue: #4facfe;
+      --accent-purple: #8a2be2;
+      --accent-emerald: #00f5a0;
+      --accent-amber: #f59e0b;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(79, 172, 254, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(138, 43, 226, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(0, 245, 160, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      color: var(--accent-cyan);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #ffffff 30%, var(--accent-blue) 70%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      max-width: 750px;
+      margin: 0 auto;
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 35px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 10px 22px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(138, 43, 226, 0.2));
+      border-color: var(--accent-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
+    }
+
+    /* Section Views */
+    .view-content {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .view-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Glass Cards */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    }
+
+    /* Architecture Grid */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .tier-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .tier-box:hover, .tier-box.selected {
+      transform: translateY(-4px);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 12px 28px rgba(0, 242, 254, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tier-box.selected {
+      border-left: 4px solid var(--accent-cyan);
+    }
+
+    .tier-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .tier-1 { background: rgba(79, 172, 254, 0.15); color: var(--accent-blue); }
+    .tier-2 { background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); }
+    .tier-3 { background: rgba(0, 245, 160, 0.15); color: var(--accent-emerald); }
+    .tier-4 { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+    .tier-5 { background: rgba(138, 43, 226, 0.15); color: #c084fc; }
+
+    .tier-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tier-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .tech-pill-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tech-pill {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: #e5e7eb;
+    }
+
+    /* Deep Inspector Panel */
+    .inspector-panel {
+      background: rgba(10, 15, 26, 0.95);
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 20px;
+    }
+
+    .inspector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .inspector-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    /* Live Workflow Simulator */
+    .sim-controls {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .sim-btn {
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      color: #0b0f19;
+      font-weight: 700;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sim-btn:hover {
+      box-shadow: 0 0 25px rgba(0, 242, 254, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .sim-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .sim-pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .pipe-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      transition: all 0.3s ease;
+      opacity: 0.4;
+    }
+
+    .pipe-step.active {
+      opacity: 1;
+      border-color: var(--accent-cyan);
+      background: rgba(0, 242, 254, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 242, 254, 0.1);
+      transform: scale(1.01);
+    }
+
+    .pipe-step.completed {
+      opacity: 1;
+      border-color: var(--accent-emerald);
+      background: rgba(0, 245, 160, 0.04);
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .pipe-step.active .step-num {
+      background: var(--accent-cyan);
+      color: #0b0f19;
+      box-shadow: 0 0 12px var(--accent-cyan);
+    }
+
+    .pipe-step.completed .step-num {
+      background: var(--accent-emerald);
+      color: #0b0f19;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #ffffff;
+    }
+
+    .step-time {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .step-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    /* Code Block & Terminal */
+    pre, code {
+      font-family: var(--font-mono);
+    }
+
+    .code-box {
+      background: #080c14;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 0.82rem;
+      color: #e5e7eb;
+      overflow-x: auto;
+      max-height: 240px;
+    }
+
+    /* Comparison Table */
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95rem;
+    }
+
+    .comp-table th, .comp-table td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .comp-table th {
+      color: var(--accent-cyan);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .comp-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tag-green {
+      color: var(--accent-emerald);
+      font-weight: 600;
+    }
+
+    .tag-red {
+      color: #f87171;
+    }
+
+    /* Print styling */
+    @media print {
+      body { background: #ffffff; color: #000000; }
+      .tabs, .sim-controls { display: none; }
+      .glass-card { box-shadow: none; border: 1px solid #ddd; background: #fff; }
+      .view-content { display: block !important; margin-bottom: 40px; }
+      h1, h2, h3 { color: #000; -webkit-text-fill-color: initial; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="badge">
+      <div class="badge-dot"></div>
+      Enterprise Architectural Specification
+    </div>
+    <h1>fluAi + Diffy MCP Architecture</h1>
+    <p class="subtitle">
+      Deep architectural blueprint and real-time execution workflow connecting cross-platform clients, FastAPI orchestration, dynamic FastMCP skills, and Groq LPU inference.
+    </p>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('overview')">
+      <span>🏛️</span> System Architecture
+    </button>
+    <button class="tab-btn" onclick="switchTab('simulator')">
+      <span>⚡</span> Live Workflow Simulator
+    </button>
+    <button class="tab-btn" onclick="switchTab('protocols')">
+      <span>🔌</span> MCP & JSON-RPC Protocols
+    </button>
+    <button class="tab-btn" onclick="switchTab('comparison')">
+      <span>📊</span> Architecture ROI vs Traditional RAG
+    </button>
+  </div>
+
+  <!-- VIEW 1: SYSTEM ARCHITECTURE -->
+  <div id="view-overview" class="view-content active">
+    
+    <div class="glass-card">
+      <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Multi-Tier Topology Explorer</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">
+        Click on any tier below to inspect its operational responsibilities, internal mechanisms, and runtime dependencies:
+      </p>
+
+      <div class="arch-grid">
+        
+        <!-- Tier 1 -->
+        <div class="tier-box selected" onclick="selectTier(1)">
+          <span class="tier-badge tier-1">Tier 1: Client Gateway</span>
+          <div class="tier-title">
+            <span>Mobile & Web Clients</span>
+            <span>📱</span>
+          </div>
+          <p class="tier-desc">Capacitor native Android build & responsive SvelteKit web interface with secure audio handling.</p>
+          <div class="tech-pill-container">
+            <span class="tech-pill">Android APK</span>
+            <span class="tech-pill">Capacitor</span>
+            <span class="tech-pill">SvelteKit</span>
+            <span class="tech-pill">Vite</span>
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="tier-box" onclick="selectTier(2)">
+          <span class="tier-badge tier-2">Tier 2: Core Orchestrator</span>
+          <div class="tier-title">
+            <span>fluAi Backend Core</span>
+            <span>🖥️</span>
+          </div>
+          <p class="tier-desc">FastAPI ASGI gateway managing JWT sessions, tool aggregation middleware, and SSE streaming.</p>
+          <div class="tech-pill-container">
+            <span class="tech-pill">Python 3.11</span>
+            <span class="tech-pill">FastAPI</span>
+            <span class="tech-pill">Uvicorn</span>
+            <span class="tech-pill">AsyncIO</span>
+          </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="tier-box" onclick="selectTier(3)">
+          <span class="tier-badge tier-3">Tier 3: Dynamic Knowledge</span>
+          <div class="tier-title">
+            <span>Diffy FastMCP Server</span>
+            <span>⚡</span>
+          </div>
+          <p class="tier-desc">Standalone Model Context Protocol service exposing dynamic skills, repository files, and instructions.</p>
+          <div class="tech-pill-container">
+            <span class="tech-pill">FastMCP</span>
+            <span class="tech-pill">MCP 2024-11-05</span>
+            <span class="tech-pill">JSON-RPC 2.0</span>
+            <span class="tech-pill">SSE</span>
+          </div>
+        </div>
+
+        <!-- Tier 4 -->
+        <div class="tier-box" onclick="selectTier(4)">
+          <span class="tier-badge tier-4">Tier 4: LPU Inference</span>
+          <div class="tier-title">
+            <span>Groq Cloud LPU</span>
+            <span>🚀</span>
+          </div>
+          <p class="tier-desc">Ultra-low latency Language Processing Units delivering sub-second completions with native tool calling.</p>
+          <div class="tech-pill-container">
+            <span class="tech-pill">GPT OSS 120B</span>
+            <span class="tech-pill">Qwen 27B</span>
+            <span class="tech-pill">Whisper Turbo</span>
+            <span class="tech-pill">Gemini Fallback</span>
+          </div>
+        </div>
+
+        <!-- Tier 5 -->
+        <div class="tier-box" onclick="selectTier(5)">
+          <span class="tier-badge tier-5">Tier 5: Persistence</span>
+          <div class="tier-title">
+            <span>Neon Cloud DB</span>
+            <span>🐘</span>
+          </div>
+          <p class="tier-desc">Serverless PostgreSQL database maintaining users, chats, granular permissions, and analytics.</p>
+          <div class="tech-pill-container">
+            <span class="tech-pill">PostgreSQL</span>
+            <span class="tech-pill">Neon Serverless</span>
+            <span class="tech-pill">SQLAlchemy</span>
+            <span class="tech-pill">Psycopg3</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Detail Inspector -->
+      <div id="inspector-display" class="inspector-panel">
+        <!-- Dynamically populated via JS -->
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- VIEW 2: LIVE WORKFLOW SIMULATOR -->
+  <div id="view-simulator" class="view-content">
+    <div class="glass-card">
+      <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Interactive End-to-End Pipeline Simulator</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">
+        Trigger a live simulated execution to observe how user prompts traverse the backend, execute MCP tools on Diffy, and stream responses back via Groq LPUs.
+      </p>
+
+      <div class="sim-controls">
+        <button id="run-sim-btn" class="sim-btn" onclick="runSimulation()">
+          <span>▶</span> Simulate Prompt: "List my MCP skills"
+        </button>
+        <span id="sim-status" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">
+          Status: Ready to simulate
+        </span>
+      </div>
+
+      <div class="sim-pipeline">
+        
+        <div id="sim-step-1" class="pipe-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-header">
+              <span class="step-title">Client Dispatch & Session Validation</span>
+              <span class="step-time">0 ms</span>
+            </div>
+            <p class="step-desc">User submits query via Android APK or Web UI. Request is validated with JWT Bearer token.</p>
+            <pre class="code-box">POST /api/chat/completions HTTP/1.1
+Authorization: Bearer fluai_jwt_token_xxxx
+{"model": "openai/gpt-oss-120b", "messages": [{"role": "user", "content": "List my MCP skills"}]}</pre>
+          </div>
+        </div>
+
+        <div id="sim-step-2" class="pipe-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-header">
+              <span class="step-title">MCP Discovery & Tool Schema Injection</span>
+              <span class="step-time">+45 ms</span>
+            </div>
+            <p class="step-desc">fluAi checks active MCP servers, connects to Diffy at https://diffy-ax7l.onrender.com/mcp, and attaches tool definitions.</p>
+            <pre class="code-box">→ POST https://diffy-ax7l.onrender.com/mcp {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+← Response: [{"name": "list_skills"}, {"name": "get_skill"}, {"name": "list_skill_files"}]</pre>
+          </div>
+        </div>
+
+        <div id="sim-step-3" class="pipe-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-header">
+              <span class="step-title">Groq LPU Inference: Autonomous Tool Call</span>
+              <span class="step-time">+180 ms</span>
+            </div>
+            <p class="step-desc">Groq's 120B model evaluates the prompt and determines it must invoke list_skills() before answering.</p>
+            <pre class="code-box">← Groq LPU emits Tool Call:
+"tool_calls": [{"id": "fc_0c5656", "function": {"name": "list_skills", "arguments": "{}"}}]</pre>
+          </div>
+        </div>
+
+        <div id="sim-step-4" class="pipe-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-header">
+              <span class="step-title">Diffy MCP Server Execution</span>
+              <span class="step-time">+450 ms</span>
+            </div>
+            <p class="step-desc">fluAi middleware executes tools/call on Diffy. Diffy parses registered knowledge bases and returns the skills payload.</p>
+            <pre class="code-box">→ POST /mcp tools/call {"name": "list_skills", "arguments": {}}
+← Return: {"skills": ["flutter-expert", "python-fastapi-master", "github-repo-manager"]}</pre>
+          </div>
+        </div>
+
+        <div id="sim-step-5" class="pipe-step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-header">
+              <span class="step-title">Turn 2 Synthesis & SSE Token Streaming</span>
+              <span class="step-time">+750 ms (Complete)</span>
+            </div>
+            <p class="step-desc">Groq receives the tool output, formats the markdown answer, and streams tokens to the user screen in real time.</p>
+            <pre class="code-box" style="color: var(--accent-emerald);">"Here are the MCP skills currently associated with your account:
+- 📱 flutter-expert: Native Android/iOS cross-platform workflows
+- 🐍 python-fastapi-master: High-performance microservice architecture
+- 🐙 github-repo-manager: Git repository automation & skills sync"</pre>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW 3: PROTOCOLS & DATA SCHEMAS -->
+  <div id="view-protocols" class="view-content">
+    <div class="glass-card">
+      <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Protocol & Wire-Level Handshake</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">
+        Standardized protocols guaranteeing robust decoupling between fluAi Core and Diffy FastMCP:
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px;">
+        
+        <div>
+          <h3 style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 10px;">1. MCP Session Handshake</h3>
+          <pre class="code-box">POST /mcp HTTP/1.1
+Host: diffy-ax7l.onrender.com
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "fluAi-core",
+      "version": "1.0.0"
+    }
+  }
+}
+<!-- Response Header: mcp-session-id: ec9c0f0588854892bd... --></pre>
+        </div>
+
+        <div>
+          <h3 style="color: var(--accent-emerald); font-size: 1.1rem; margin-bottom: 10px;">2. Dynamic Tool Call Execution</h3>
+          <pre class="code-box">POST /mcp HTTP/1.1
+Host: diffy-ax7l.onrender.com
+Content-Type: application/json
+mcp-session-id: ec9c0f0588854892bd...
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "get_skill",
+    "arguments": {
+      "skill_name": "github-repo-manager"
+    }
+  }
+}</pre>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 4: ARCHITECTURE ROI VS TRADITIONAL RAG -->
+  <div id="view-comparison" class="view-content">
+    <div class="glass-card">
+      <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Architectural Superiority: fluAi + MCP vs Traditional RAG</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">
+        Why coupling FastMCP with Groq LPUs provides significant cost, speed, and accuracy advantages:
+      </p>
+
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Evaluation Dimension</th>
+            <th>Traditional RAG / Vector Search</th>
+            <th>fluAi + Diffy MCP Architecture</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Latency (Time to First Token)</strong></td>
+            <td class="tag-red">3,000 ms – 6,000 ms (Vector lookup + embedding + GPU queue)</td>
+            <td class="tag-green">⚡ &lt; 400 ms (Groq LPU deterministic compilation)</td>
+          </tr>
+          <tr>
+            <td><strong>Token Consumption & Cost</strong></td>
+            <td class="tag-red">High: 4,000 – 10,000 tokens of static chunks stuffed into every prompt</td>
+            <td class="tag-green">🎯 Ultra-Low: 0 context overhead until tools are called</td>
+          </tr>
+          <tr>
+            <td><strong>Knowledge Freshness</strong></td>
+            <td class="tag-red">Stale: Requires vector re-embedding & cron re-indexing</td>
+            <td class="tag-green">🔄 Instant: Edit a skill file on Diffy; live instantly</td>
+          </tr>
+          <tr>
+            <td><strong>Device Coverage</strong></td>
+            <td class="tag-muted">Web only or sluggish mobile hybrid</td>
+            <td class="tag-green">📱 Native Android APK + Responsive Web UI</td>
+          </tr>
+          <tr>
+            <td><strong>Data Persistence</strong></td>
+            <td class="tag-red">Ephemeral local storage (lost on container restart)</td>
+            <td class="tag-green">🐘 Enterprise Neon Serverless PostgreSQL</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Tab switching
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.view-content').forEach(view => view.classList.remove('active'));
+    
+    event.currentTarget.classList.add('active');
+    document.getElementById('view-' + tabId).classList.add('active');
+  }
+
+  // Tier inspection details
+  const tierData = {
+    1: {
+      title: "Tier 1: Client Experience Layer (Android Native APK & SvelteKit Web)",
+      badge: "Mobile & Web Client Tier",
+      badgeClass: "tier-1",
+      description: "Omnichannel access layer serving users on Android mobile devices and desktop web browsers.",
+      details: [
+        { label: "Capacitor Mobile Architecture", val: "The Android APK is built with Capacitor. It serves local assets over 'https://localhost' (androidScheme: 'https') to ensure WebRTC / MediaDevices microphone permissions are granted without browser security blocks." },
+        { label: "Web Framework", val: "SvelteKit with Vite and TailwindCSS for reactive component rendering, client-side session caching, and markdown parsing." },
+        { label: "Voice Processing", val: "Web Audio API capturing 16kHz audio blobs, streaming to Groq Whisper Speech-to-Text for 200ms voice recognition." }
+      ]
+    },
+    2: {
+      title: "Tier 2: Core Orchestration Gateway (fluAi / FastAPI)",
+      badge: "Application & API Tier",
+      badgeClass: "tier-2",
+      description: "High-concurrency ASGI application handling authentication, MCP tool mediation, and SSE streaming.",
+      details: [
+        { label: "Tool Aggregation Middleware", val: "Discovers active MCP servers from TOOL_SERVER_CONNECTIONS, translates tools/list schemas into OpenAI-standard function declarations, and intercepts assistant tool_calls." },
+        { label: "Autonomous Tool Loop", val: "Executes tool requests on Diffy, feeds tool output back to the LLM in Turn 2, and streams the synthesized response via Server-Sent Events (SSE)." },
+        { label: "Authentication & Security", val: "JWT Bearer token verification, Role-Based Access Control (RBAC), and automatic CORS origin shielding." }
+      ]
+    },
+    3: {
+      title: "Tier 3: Dynamic Knowledge & Skills Hub (Diffy FastMCP Server)",
+      badge: "Knowledge Microservice",
+      badgeClass: "tier-3",
+      description: "Decoupled intelligence server implementing Anthropic's Model Context Protocol (MCP 2024-11-05).",
+      details: [
+        { label: "Primary Tools", val: "list_skills (enumerates registered skill suites), get_skill (retrieves full operating guidelines), and list_skill_files (inspects auxiliary repository assets)." },
+        { label: "Protocol Compliance", val: "JSON-RPC 2.0 over HTTP with Server-Sent Events transport and mcp-session-id session persistence." },
+        { label: "Decoupled Business Logic", val: "Domain knowledge lives in Diffy and is never hardcoded into prompt templates, enabling instant live updates without code re-deployment." }
+      ]
+    },
+    4: {
+      title: "Tier 4: Ultra-High-Speed Inference Engine (Groq Cloud LPUs)",
+      badge: "AI Inference Tier",
+      badgeClass: "tier-4",
+      description: "Hardware-accelerated Language Processing Units delivering up to 10x faster inference than traditional GPU farms.",
+      details: [
+        { label: "Flagship Model", val: "openai/gpt-oss-120b (120 Billion parameter model with deep reasoning and native tool-calling accuracy)." },
+        { label: "High-Efficiency Model", val: "qwen/qwen3.8-27b (27 Billion parameter multilingual engine for rapid conversation)." },
+        { label: "Failover Architecture", val: "Transparent failover to Google Gemini (gemini-3.1-flash-lite) for 1M+ token large document tasks." }
+      ]
+    },
+    5: {
+      title: "Tier 5: Enterprise Persistence & State (Neon PostgreSQL)",
+      badge: "Data Tier",
+      badgeClass: "tier-5",
+      description: "Cloud-native, serverless PostgreSQL ensuring high availability and ACID compliance across sessions.",
+      details: [
+        { label: "Connection Pooling", val: "Integrated Neon connection pooler for serverless cold-start resilience and auto-scaling." },
+        { label: "Persisted Entities", val: "User credentials, custom prompt presets, tool execution logs, conversation histories, and model preferences." },
+        { label: "Local Fallback", val: "Embedded SQLite database automatically enabled if cloud connection is not configured." }
+      ]
+    }
+  };
+
+  function selectTier(num) {
+    document.querySelectorAll('.tier-box').forEach((b, idx) => {
+      if (idx + 1 === num) b.classList.add('selected');
+      else b.classList.remove('selected');
+    });
+
+    const data = tierData[num];
+    const inspector = document.getElementById('inspector-display');
+    
+    let html = `
+      <div class="inspector-header">
+        <span class="inspector-title">${data.title}</span>
+        <span class="tier-badge ${data.badgeClass}">${data.badge}</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">${data.description}</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+    `;
+
+    data.details.forEach(item => {
+      html += `
+        <div style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="font-weight: 700; color: #ffffff; font-size: 0.9rem; margin-bottom: 6px;">${item.label}</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;">${item.val}</div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    inspector.innerHTML = html;
+  }
+
+  // Initialize inspector with Tier 1
+  selectTier(1);
+
+  // Workflow Simulator
+  let isSimulating = false;
+  async function runSimulation() {
+    if (isSimulating) return;
+    isSimulating = true;
+    
+    const btn = document.getElementById('run-sim-btn');
+    const status = document.getElementById('sim-status');
+    btn.disabled = true;
+
+    // Reset steps
+    for (let i = 1; i <= 5; i++) {
+      const el = document.getElementById('sim-step-' + i);
+      el.className = 'pipe-step';
+    }
+
+    const steps = [
+      { num: 1, text: "Step 1: Validating JWT session & formatting client request...", delay: 500 },
+      { num: 2, text: "Step 2: Connecting to Diffy MCP & fetching tool schemas...", delay: 600 },
+      { num: 3, text: "Step 3: Groq LPU evaluates prompt & emits list_skills() call...", delay: 700 },
+      { num: 4, text: "Step 4: Diffy executes tools/call and returns registered skills...", delay: 800 },
+      { num: 5, text: "Step 5: Groq synthesizes final answer & streams tokens to UI...", delay: 900 }
+    ];
+
+    for (const step of steps) {
+      status.innerText = "Running: " + step.text;
+      const el = document.getElementById('sim-step-' + step.num);
+      el.className = 'pipe-step active';
+      await new Promise(r => setTimeout(r, step.delay));
+      el.className = 'pipe-step completed';
+    }
+
+    status.innerText = "Simulation Complete (Round-trip time: ~750ms)";
+    btn.disabled = false;
+    isSimulating = false;
+  }
+</script>
+
+</body>
+</html>
