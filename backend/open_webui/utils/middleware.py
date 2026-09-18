@@ -2787,28 +2787,27 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         # Server side tools
         tool_ids = metadata.get('tool_ids', None)
 
-        # Auto-attach MCP tool servers (e.g. Diffy) when default skills prompt is enabled
-        if enable_skills_prompt:
-            tool_server_connections = await Config.get('tool_server.connections', []) or []
-            mcp_server_ids = []
-            for c in tool_server_connections:
-                if c.get('type', '') == 'mcp' and (c.get('config') or {}).get('enable', True):
-                    s_id = (
-                        (c.get('info') or {}).get('id')
-                        or c.get('id')
-                        or c.get('name', '').lower().replace(' ', '_')
-                        or 'diffy'
-                    )
-                    if s_id and s_id not in mcp_server_ids:
-                        mcp_server_ids.append(s_id)
-            if mcp_server_ids:
-                if tool_ids is None:
-                    tool_ids = []
-                for ms_id in mcp_server_ids:
-                    tool_marker = f'server:mcp:{ms_id}'
-                    if tool_marker not in tool_ids:
-                        tool_ids.append(tool_marker)
-                metadata['tool_ids'] = tool_ids
+        # Always auto-attach enabled MCP tool servers (e.g. Diffy) to every chat session
+        tool_server_connections = await Config.get('tool_server.connections', []) or []
+        mcp_server_ids = []
+        for c in tool_server_connections:
+            if c.get('type', '') == 'mcp' and (c.get('config') or {}).get('enable', True):
+                s_id = (
+                    (c.get('info') or {}).get('id')
+                    or c.get('id')
+                    or c.get('name', '').lower().replace(' ', '_')
+                    or 'diffy'
+                )
+                if s_id and s_id not in mcp_server_ids:
+                    mcp_server_ids.append(s_id)
+        if mcp_server_ids:
+            if tool_ids is None:
+                tool_ids = []
+            for ms_id in mcp_server_ids:
+                tool_marker = f'server:mcp:{ms_id}'
+                if tool_marker not in tool_ids:
+                    tool_ids.append(tool_marker)
+            metadata['tool_ids'] = tool_ids
 
         # Client side tools
         direct_tool_servers = metadata.get('tool_servers', None)

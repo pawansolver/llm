@@ -69,8 +69,39 @@ async def seed_registered_defaults():
         env_overrides['audio.tts.engine'] = AUDIO_TTS_ENGINE
 
     current_tools = await Config.get('tool_server.connections')
-    if (not current_tools or len(current_tools) == 0) and TOOL_SERVER_CONNECTIONS:
-        env_overrides['tool_server.connections'] = TOOL_SERVER_CONNECTIONS
+    # Auto-configure Diffy MCP server connection so it NEVER has to be manually added in Admin Settings
+    diffy_url = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.com').rstrip('/') + '/mcp'
+    diffy_conn = {
+        'id': 'diffy',
+        'info': {'id': 'diffy', 'name': 'Diffy Skills'},
+        'url': diffy_url,
+        'type': 'mcp',
+        'auth_type': 'none',
+        'name': 'Diffy Skills',
+        'config': {'enable': True},
+    }
+    tools_list = list(current_tools) if isinstance(current_tools, list) else []
+    has_diffy = any(
+        isinstance(t, dict) and ('diffy' in str(t.get('url', '')).lower() or t.get('id') == 'diffy')
+        for t in tools_list
+    )
+    if not has_diffy:
+        tools_list.append(diffy_conn)
+        env_overrides['tool_server.connections'] = tools_list
+    else:
+        updated = False
+        for t in tools_list:
+            if isinstance(t, dict) and ('diffy' in str(t.get('url', '')).lower() or t.get('id') == 'diffy'):
+                if t.get('id') != 'diffy' or not t.get('info') or not (t.get('config') or {}).get('enable', False):
+                    t['id'] = 'diffy'
+                    t['info'] = {'id': 'diffy', 'name': t.get('name', 'Diffy Skills')}
+                    if not t.get('config'):
+                        t['config'] = {'enable': True}
+                    else:
+                        t['config']['enable'] = True
+                    updated = True
+        if updated:
+            env_overrides['tool_server.connections'] = tools_list
 
     current_default_models = await Config.get('ui.default_models')
     if os.getenv('DEFAULT_MODELS'):
