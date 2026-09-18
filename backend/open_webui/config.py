@@ -1655,7 +1655,8 @@ AUDIO_TTS_OPENAI_PARAMS = audio_tts_openai_params
 
 AUDIO_TTS_API_KEY = os.getenv('AUDIO_TTS_API_KEY', '')
 
-AUDIO_TTS_ENGINE = os.getenv('AUDIO_TTS_ENGINE', '')
+_raw_tts_engine = os.getenv('AUDIO_TTS_ENGINE', '')
+AUDIO_TTS_ENGINE = '' if _raw_tts_engine.strip().lower() in ('web', 'browser', '') else _raw_tts_engine
 
 
 AUDIO_TTS_MODEL = os.getenv('AUDIO_TTS_MODEL', 'tts-1')

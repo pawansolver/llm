@@ -100,7 +100,7 @@
 		'text-[0.6875rem] text-gray-400 dark:text-gray-600 [&_a]:text-gray-900 [&_a]:hover:underline dark:[&_a]:text-gray-300';
 
 	const getModels = async () => {
-		if (TTS_ENGINE === '') {
+		if (TTS_ENGINE === '' || TTS_ENGINE === 'web') {
 			models = [];
 		} else {
 			const res = await _getModels(localStorage.token).catch((e) => {
@@ -115,7 +115,7 @@
 	};
 
 	const getVoices = async () => {
-		if (TTS_ENGINE === '') {
+		if (TTS_ENGINE === '' || TTS_ENGINE === 'web') {
 			providerVoices = [];
 
 			const getVoicesLoop = setInterval(() => {
@@ -720,7 +720,7 @@
 				</div>
 			{/if}
 
-			{#if TTS_ENGINE === ''}
+			{#if TTS_ENGINE === '' || TTS_ENGINE === 'web'}
 				<AdminSettingField label={$i18n.t('TTS Voice')}>
 					<SettingsSelect bind:value={TTS_VOICE} className="w-full">
 						<option value="" selected={TTS_VOICE !== ''}>{$i18n.t('Default')}</option>

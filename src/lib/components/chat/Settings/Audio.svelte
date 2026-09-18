@@ -60,7 +60,7 @@
 				};
 			});
 		} else {
-			if ($config.audio.tts.engine === '') {
+			if ($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') {
 				const getVoicesLoop = setInterval(async () => {
 					voices = await speechSynthesis.getVoices();
 
@@ -187,7 +187,7 @@
 					playbackRate: playbackRate,
 					voice: voice !== '' ? voice : undefined,
 					defaultVoice: $config?.audio?.tts?.voice ?? '',
-					nonLocalVoices: $config.audio.tts.engine === '' ? nonLocalVoices : undefined
+					nonLocalVoices: ($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') ? nonLocalVoices : undefined
 				}
 			}
 		});
@@ -445,7 +445,7 @@
 						</div>
 					</UserSettingSection>
 				{/if}
-			{:else if $config.audio.tts.engine === ''}
+			{:else if $config.audio.tts.engine === '' || $config.audio.tts.engine === 'web'}
 				<UserSettingSection title={$i18n.t('Voice')}>
 					<UserSettingField
 						label={$i18n.t('Set Voice')}

@@ -252,7 +252,7 @@
 
 		speaking = true;
 
-		if ($config.audio.tts.engine === '') {
+		if ($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') {
 			let voices = speechSynthesis.getVoices();
 			if (!voices.length) {
 				voices = await new Promise<SpeechSynthesisVoice[]>((resolve) => {
@@ -285,6 +285,9 @@
 				speaking = false;
 				loadingSpeech = false;
 			};
+			if (speechSynthesis.paused) {
+				speechSynthesis.resume();
+			}
 			speechSynthesis.speak(speech);
 		} else {
 			$audioQueue.setId(`${message.id}`);
