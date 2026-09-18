@@ -87,11 +87,14 @@
 		let engine =
 			$settings?.audio?.tts?.engine ?? ($config as any)?.audio?.tts?.engine ?? '';
 		if (engine === 'web') engine = '';
-		// Browser SpeechSynthesis is non-functional in Android WebView — fall
-		// back to the OpenAI-compatible server engine so responses are spoken.
+		// If running in Android WebView and a server-side engine is explicitly configured, use that.
+		// Otherwise, use browser speech so it doesn't fail with 404 when no OpenAI key is provided.
 		if (engine === '' && isAndroidWebView()) {
 			const serverEngine = ($config as any)?.audio?.tts?.engine;
-			return serverEngine && serverEngine !== 'web' ? serverEngine : 'openai';
+			if (serverEngine && serverEngine !== 'web' && serverEngine !== '') {
+				return serverEngine;
+			}
+			return '';
 		}
 		return engine;
 	};
@@ -382,12 +385,22 @@
 			currentUtterance.rate = $settings?.audio?.tts?.playbackRate ?? 1;
 			const voice = selectBrowserVoice(voices, getVoiceId(), $settings?.audio?.stt?.language);
 			if (voice) currentUtterance.voice = voice;
+			const fallbackTimeout = setTimeout(() => {
+				if (currentUtterance) {
+					currentUtterance = null;
+					resolveUtterance = null;
+					resolve();
+				}
+			}, Math.max(8000, content.length * 200));
+
 			currentUtterance.onend = () => {
+				clearTimeout(fallbackTimeout);
 				currentUtterance = null;
 				resolveUtterance = null;
 				resolve();
 			};
 			currentUtterance.onerror = (event) => {
+				clearTimeout(fallbackTimeout);
 				currentUtterance = null;
 				resolveUtterance = null;
 				event.error === 'canceled' || event.error === 'interrupted'
