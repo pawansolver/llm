@@ -223,7 +223,9 @@
 		speakAbort = null;
 
 		try {
-			speechSynthesis.cancel();
+			if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+				window.speechSynthesis.cancel();
+			}
 			$audioQueue?.stop();
 		} catch {}
 
@@ -252,20 +254,23 @@
 
 		speaking = true;
 
-		if ($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') {
-			let voices = speechSynthesis.getVoices();
+		const hasSpeechSynthesis =
+			typeof window !== 'undefined' && 'speechSynthesis' in window && !!window.speechSynthesis;
+
+		if (($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') && hasSpeechSynthesis) {
+			let voices = window.speechSynthesis.getVoices();
 			if (!voices.length) {
 				voices = await new Promise<SpeechSynthesisVoice[]>((resolve) => {
 					const timeout = window.setTimeout(() => {
-						speechSynthesis.removeEventListener('voiceschanged', changed);
-						resolve(speechSynthesis.getVoices());
+						window.speechSynthesis?.removeEventListener('voiceschanged', changed);
+						resolve(window.speechSynthesis?.getVoices() ?? []);
 					}, 1000);
 					const changed = () => {
 						window.clearTimeout(timeout);
-						speechSynthesis.removeEventListener('voiceschanged', changed);
-						resolve(speechSynthesis.getVoices());
+						window.speechSynthesis?.removeEventListener('voiceschanged', changed);
+						resolve(window.speechSynthesis?.getVoices() ?? []);
 					};
-					speechSynthesis.addEventListener('voiceschanged', changed, { once: true });
+					window.speechSynthesis?.addEventListener('voiceschanged', changed, { once: true });
 				});
 			}
 			if (signal.aborted) return;
@@ -285,10 +290,10 @@
 				speaking = false;
 				loadingSpeech = false;
 			};
-			if (speechSynthesis.paused) {
-				speechSynthesis.resume();
+			if (window.speechSynthesis.paused) {
+				window.speechSynthesis.resume();
 			}
-			speechSynthesis.speak(speech);
+			window.speechSynthesis.speak(speech);
 		} else {
 			$audioQueue.setId(`${message.id}`);
 			$audioQueue.setPlaybackRate($settings.audio?.tts?.playbackRate ?? 1);

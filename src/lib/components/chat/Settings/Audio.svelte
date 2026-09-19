@@ -61,14 +61,16 @@
 			});
 		} else {
 			if ($config.audio.tts.engine === '' || $config.audio.tts.engine === 'web') {
-				const getVoicesLoop = setInterval(async () => {
-					voices = await speechSynthesis.getVoices();
+				if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+					const getVoicesLoop = setInterval(async () => {
+						voices = await window.speechSynthesis.getVoices();
 
-					// do your loop
-					if (voices.length > 0) {
-						clearInterval(getVoicesLoop);
-					}
-				}, 100);
+						// do your loop
+						if (voices.length > 0) {
+							clearInterval(getVoicesLoop);
+						}
+					}, 100);
+				}
 			} else {
 				const res = await _getVoices(localStorage.token).catch((e) => {
 					toast.error(`${e}`);

@@ -88,13 +88,13 @@
 			$settings?.audio?.tts?.engine ?? ($config as any)?.audio?.tts?.engine ?? '';
 		if (engine === 'web') engine = '';
 		// If running in Android WebView and a server-side engine is explicitly configured, use that.
-		// Otherwise, use browser speech so it doesn't fail with 404 when no OpenAI key is provided.
-		if (engine === '' && isAndroidWebView()) {
+		// Otherwise, fallback to google so it speaks via server without error.
+		if (engine === '' && (isAndroidWebView() || typeof window === 'undefined' || !('speechSynthesis' in window))) {
 			const serverEngine = ($config as any)?.audio?.tts?.engine;
 			if (serverEngine && serverEngine !== 'web' && serverEngine !== '') {
 				return serverEngine;
 			}
-			return '';
+			return 'google';
 		}
 		return engine;
 	};
@@ -359,19 +359,20 @@
 	};
 
 	const waitForVoices = async () => {
-		const initial = speechSynthesis.getVoices();
+		if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis) return [];
+		const initial = window.speechSynthesis.getVoices();
 		if (initial.length) return initial;
 		return await new Promise<SpeechSynthesisVoice[]>((resolve) => {
 			const timeout = window.setTimeout(() => {
-				speechSynthesis.removeEventListener('voiceschanged', changed);
-				resolve(speechSynthesis.getVoices());
+				window.speechSynthesis?.removeEventListener('voiceschanged', changed);
+				resolve(window.speechSynthesis?.getVoices() ?? []);
 			}, 1000);
 			const changed = () => {
 				window.clearTimeout(timeout);
-				speechSynthesis.removeEventListener('voiceschanged', changed);
-				resolve(speechSynthesis.getVoices());
+				window.speechSynthesis?.removeEventListener('voiceschanged', changed);
+				resolve(window.speechSynthesis?.getVoices() ?? []);
 			};
-			speechSynthesis.addEventListener('voiceschanged', changed, { once: true });
+			window.speechSynthesis?.addEventListener('voiceschanged', changed, { once: true });
 		});
 	};
 
@@ -407,10 +408,10 @@
 					? resolve()
 					: reject(new Error(event.error));
 			};
-			if (speechSynthesis.paused) {
-				speechSynthesis.resume();
+			if (window.speechSynthesis?.paused) {
+				window.speechSynthesis.resume();
 			}
-			speechSynthesis.speak(currentUtterance);
+			window.speechSynthesis?.speak(currentUtterance);
 		});
 	};
 
@@ -456,7 +457,11 @@
 		ttsAbortController.abort();
 		ttsAbortController = new AbortController();
 		ttsChain = Promise.resolve();
-		speechSynthesis.cancel();
+		try {
+			if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+				window.speechSynthesis.cancel();
+			}
+		} catch {}
 		resolveUtterance?.();
 		resolveUtterance = null;
 		currentUtterance = null;

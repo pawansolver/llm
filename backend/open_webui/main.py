@@ -351,6 +351,26 @@ async def lifespan(app: FastAPI):
             await Config.upsert({'ui.enable_signup': True})
         except Exception as _e:
             log.warning(f'Failed to sync ui.enable_signup on startup: {_e}')
+    default_role = os.getenv('DEFAULT_USER_ROLE', 'user')
+    try:
+        await Config.upsert({'ui.default_user_role': default_role})
+    except Exception as _e:
+        log.warning(f'Failed to sync ui.default_user_role on startup: {_e}')
+    try:
+        from open_webui.models.users import User
+        from open_webui.internal.db import get_async_db_context
+        from sqlalchemy import update
+        async with get_async_db_context() as db:
+            await db.execute(update(User).where(User.role == 'pending').values(role='user'))
+            await db.commit()
+    except Exception as _e:
+        log.warning(f'Failed to activate pending users on startup: {_e}')
+    tts_engine = os.getenv('AUDIO_TTS_ENGINE', 'google')
+    if tts_engine and tts_engine != 'web':
+        try:
+            await Config.upsert({'audio.tts.engine': tts_engine})
+        except Exception as _e:
+            log.warning(f'Failed to sync audio.tts.engine on startup: {_e}')
     await publish_event(app, EVENTS.SYSTEM_STARTUP_STARTED, source='system')
 
     license_task = None
@@ -2270,8 +2290,8 @@ async def get_app_config(request: Request):
                 },
                 'audio': {
                     'tts': {
-                        'engine': config.get('audio.tts.engine'),
-                        'voice': config.get('audio.tts.voice'),
+                        'engine': config.get('audio.tts.engine') if config.get('audio.tts.engine') not in ('', 'web') else (os.getenv('AUDIO_TTS_ENGINE') or 'google'),
+                        'voice': config.get('audio.tts.voice') or 'en',
                         'split_on': config.get('audio.tts.split_on'),
                     },
                     'stt': {

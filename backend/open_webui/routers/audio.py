@@ -676,6 +676,57 @@ async def _tts_mistral(request, payload, file_path, file_body_path, user):
         await _raise_tts_error(exc, r)
 
 
+async def _tts_google(request, payload, file_path, file_body_path, user):
+    """Generate speech using free Google TTS (audio/mpeg)."""
+    import urllib.parse
+
+    input_text = (payload.get('input') or '').strip()
+    if not input_text:
+        raise HTTPException(status_code=400, detail='Input text is required')
+
+    lang = payload.get('voice') or await Config.get('audio.tts.voice') or 'en'
+    if '-' in lang:
+        lang = lang.split('-')[0]
+
+    # Split text into chunks of <= 180 chars to respect Google's limit
+    words = input_text.split()
+    chunks = []
+    current_chunk = []
+    current_len = 0
+    for word in words:
+        if current_len + len(word) + 1 > 180:
+            if current_chunk:
+                chunks.append(' '.join(current_chunk))
+            current_chunk = [word]
+            current_len = len(word)
+        else:
+            current_chunk.append(word)
+            current_len += len(word) + 1
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    audio_bytes = bytearray()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
+    session = await get_session()
+    for chunk in chunks:
+        q = urllib.parse.quote(chunk)
+        url = f'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={lang}&q={q}'
+        async with session.get(url, headers=headers, ssl=AIOHTTP_CLIENT_SESSION_SSL) as r:
+            if r.status == 200:
+                audio_bytes.extend(await r.read())
+            else:
+                log.warning(f'Google TTS chunk failed with status {r.status}')
+
+    if not audio_bytes:
+        raise HTTPException(status_code=500, detail='Failed to generate Google TTS audio')
+
+    await _write_tts_cache(file_path, bytes(audio_bytes), file_body_path, payload)
+    return FileResponse(file_path)
+
+
 # Dispatcher map: engine name -> handler
 _TTS_ENGINES = {
     'openai': _tts_openai,
@@ -683,6 +734,7 @@ _TTS_ENGINES = {
     'azure': _tts_azure,
     'transformers': _tts_transformers,
     'mistral': _tts_mistral,
+    'google': _tts_google,
 }
 
 
@@ -691,10 +743,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
     await speech_cache.cleanup()
     engine = await Config.get('audio.tts.engine')
     if engine in ('', 'web'):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.NOT_FOUND,
-        )
+        engine = 'google'
 
     if user.role != 'admin' and not await has_permission(user.id, 'chat.tts', await Config.get('user.permissions')):
         raise HTTPException(
@@ -1677,6 +1726,17 @@ async def get_available_voices(request) -> dict:
                     return result
             except Exception as e:
                 log.error(f'Error fetching Mistral voices: {e}')
+
+    if engine == 'google':
+        return {
+            'en': 'English (Google)',
+            'hi': 'Hindi (Google)',
+            'es': 'Spanish (Google)',
+            'fr': 'French (Google)',
+            'de': 'German (Google)',
+            'ja': 'Japanese (Google)',
+            'ar': 'Arabic (Google)',
+        }
 
     return {}
 

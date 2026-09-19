@@ -118,15 +118,17 @@
 		if (TTS_ENGINE === '' || TTS_ENGINE === 'web') {
 			providerVoices = [];
 
-			const getVoicesLoop = setInterval(() => {
-				voices = speechSynthesis.getVoices();
+			if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+				const getVoicesLoop = setInterval(() => {
+					voices = window.speechSynthesis.getVoices();
 
-				// do your loop
-				if (voices.length > 0) {
-					clearInterval(getVoicesLoop);
-					voices.sort((a, b) => a.name.localeCompare(b.name, $i18n.resolvedLanguage));
-				}
-			}, 100);
+					// do your loop
+					if (voices.length > 0) {
+						clearInterval(getVoicesLoop);
+						voices.sort((a, b) => a.name.localeCompare(b.name, $i18n.resolvedLanguage));
+					}
+				}, 100);
+			}
 		} else {
 			voices = [];
 

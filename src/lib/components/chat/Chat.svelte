@@ -1241,7 +1241,9 @@
 
 	const stopAudio = () => {
 		try {
-			speechSynthesis.cancel();
+			if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+				window.speechSynthesis.cancel();
+			}
 			$audioQueue?.stop();
 		} catch {}
 	};
