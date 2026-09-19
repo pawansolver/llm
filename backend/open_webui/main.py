@@ -50,6 +50,7 @@ from open_webui.config import (
     ENABLE_ADMIN_CHAT_ACCESS,
     ENABLE_ADMIN_EXPORT,
     ENABLE_ONEDRIVE_BUSINESS,
+    ENABLE_SIGNUP,
     ENABLE_ONEDRIVE_PERSONAL,
     # OpenAI
     ENV,
@@ -345,6 +346,11 @@ async def lifespan(app: FastAPI):
     except Exception as _init_err:
         log.warning(f'initialize_runtime_config failed: {_init_err}')
     await migrate_legacy_webhook_config()
+    if ENABLE_SIGNUP:
+        try:
+            await Config.upsert({'ui.enable_signup': True})
+        except Exception as _e:
+            log.warning(f'Failed to sync ui.enable_signup on startup: {_e}')
     await publish_event(app, EVENTS.SYSTEM_STARTUP_STARTED, source='system')
 
     license_task = None
@@ -355,7 +361,8 @@ async def lifespan(app: FastAPI):
     if WEBUI_ADMIN_EMAIL and WEBUI_ADMIN_PASSWORD:
         if await create_admin_user(WEBUI_ADMIN_EMAIL, WEBUI_ADMIN_PASSWORD, WEBUI_ADMIN_NAME):
             # Disable signup since we now have an admin
-            await Config.upsert({'ui.enable_signup': False})
+            if not ENABLE_SIGNUP:
+                await Config.upsert({'ui.enable_signup': False})
 
     if SAFE_MODE:
         await Functions.deactivate_all_functions()
@@ -2200,7 +2207,7 @@ async def get_app_config(request: Request):
             'auth_trusted_header': bool(WEBUI_AUTH_TRUSTED_EMAIL_HEADER),
             'enable_signup_password_confirmation': ENABLE_SIGNUP_PASSWORD_CONFIRMATION,
             'enable_ldap': config.get('ldap.enable'),
-            'enable_signup': config.get('ui.enable_signup'),
+            'enable_signup': ENABLE_SIGNUP or bool(config.get('ui.enable_signup')),
             'enable_login_form': config.get('ui.enable_login_form'),
             'enable_websocket': ENABLE_WEBSOCKET_SUPPORT,
             # --- Authenticated: only consumed by logged-in frontend ---
