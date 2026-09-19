@@ -852,7 +852,7 @@ async def signup_handler(
         password=hashed,
         name=name,
         profile_image_url=profile_image_url,
-        role=await Config.get('ui.default_user_role'),
+        role=(await Config.get('ui.default_user_role') if (await Config.get('ui.default_user_role')) not in ('pending', None, '') else os.getenv('DEFAULT_USER_ROLE', 'user')),
         db=db,
     )
     if not user:

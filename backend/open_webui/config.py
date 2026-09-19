@@ -1686,8 +1686,8 @@ AUDIO_TTS_OPENAI_PARAMS = audio_tts_openai_params
 
 AUDIO_TTS_API_KEY = os.getenv('AUDIO_TTS_API_KEY', '')
 
-_raw_tts_engine = os.getenv('AUDIO_TTS_ENGINE', '')
-AUDIO_TTS_ENGINE = '' if _raw_tts_engine.strip().lower() in ('web', 'browser', '') else _raw_tts_engine
+_raw_tts_engine = os.getenv('AUDIO_TTS_ENGINE', 'google')
+AUDIO_TTS_ENGINE = 'google' if _raw_tts_engine.strip().lower() in ('web', 'browser', '', 'google') else _raw_tts_engine
 
 
 AUDIO_TTS_MODEL = os.getenv('AUDIO_TTS_MODEL', 'tts-1')
@@ -1792,7 +1792,7 @@ except Exception as e:
 
 DEFAULT_MODEL_PARAMS = default_model_params
 
-DEFAULT_USER_ROLE = os.getenv('DEFAULT_USER_ROLE', 'pending')
+DEFAULT_USER_ROLE = os.getenv('DEFAULT_USER_ROLE', 'user')
 
 DEFAULT_GROUP_ID = os.getenv('DEFAULT_GROUP_ID', '')
 
