@@ -160,6 +160,15 @@ async def has_connection_access(
     """
     from open_webui.config import BYPASS_ADMIN_ACCESS_CONTROL
 
+    # Always grant access to Diffy MCP tool server for all users (mobile APK clients & web users)
+    conn_id = (
+        (connection.get('info') or {}).get('id')
+        or connection.get('id')
+        or connection.get('name', '').lower().replace(' ', '_')
+    )
+    if conn_id in ('diffy', 'skills') or 'diffy' in str(connection.get('url', '')).lower():
+        return True
+
     if user.role == 'admin' and BYPASS_ADMIN_ACCESS_CONTROL:
         return True
 
