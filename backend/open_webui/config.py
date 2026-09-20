@@ -78,7 +78,10 @@ async def seed_registered_defaults():
         'type': 'mcp',
         'auth_type': 'none',
         'name': 'Diffy Skills',
-        'config': {'enable': True},
+        'config': {
+            'enable': True,
+            'access_grants': [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}],
+        },
     }
     tools_list = list(current_tools) if isinstance(current_tools, list) else []
     has_diffy = any(
@@ -92,13 +95,20 @@ async def seed_registered_defaults():
         updated = False
         for t in tools_list:
             if isinstance(t, dict) and ('diffy' in str(t.get('url', '')).lower() or t.get('id') == 'diffy'):
-                if t.get('id') != 'diffy' or not t.get('info') or not (t.get('config') or {}).get('enable', False):
+                needs_update = (
+                    t.get('id') != 'diffy'
+                    or not t.get('info')
+                    or not (t.get('config') or {}).get('enable', False)
+                    or not (t.get('config') or {}).get('access_grants')
+                )
+                if needs_update:
                     t['id'] = 'diffy'
                     t['info'] = {'id': 'diffy', 'name': t.get('name', 'Diffy Skills')}
                     if not t.get('config'):
-                        t['config'] = {'enable': True}
+                        t['config'] = {'enable': True, 'access_grants': [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}]}
                     else:
                         t['config']['enable'] = True
+                        t['config']['access_grants'] = [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}]
                     updated = True
         if updated:
             env_overrides['tool_server.connections'] = tools_list
@@ -443,7 +453,10 @@ if not tool_server_connections and DIFY_API_BASE_URL:
             'type': 'mcp',
             'auth_type': 'none',
             'name': 'Diffy Skills',
-            'config': {'enable': True},
+            'config': {
+                'enable': True,
+                'access_grants': [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}],
+            },
         }
     ]
 
@@ -456,6 +469,10 @@ for conn in tool_server_connections:
             conn['info'] = {'id': conn_id, 'name': conn.get('name', 'Diffy Skills')}
         elif not conn['info'].get('id'):
             conn['info']['id'] = conn_id
+        if not conn.get('config'):
+            conn['config'] = {'enable': True, 'access_grants': [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}]}
+        elif not (conn['config'].get('access_grants')):
+            conn['config']['access_grants'] = [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}]
 
 TOOL_SERVER_CONNECTIONS = tool_server_connections
 
