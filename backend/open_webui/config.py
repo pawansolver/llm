@@ -70,7 +70,7 @@ async def seed_registered_defaults():
 
     current_tools = await Config.get('tool_server.connections')
     # Auto-configure Diffy MCP server connection so it NEVER has to be manually added in Admin Settings
-    diffy_url = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.com').rstrip('/') + '/mcp'
+    diffy_url = os.getenv('DIFY_API_BASE_URL', 'https://pawan11112-diffyproject.hf.space').rstrip('/') + '/mcp'
     diffy_conn = {
         'id': 'diffy',
         'info': {'id': 'diffy', 'name': 'Diffy Skills'},
@@ -97,12 +97,14 @@ async def seed_registered_defaults():
             if isinstance(t, dict) and ('diffy' in str(t.get('url', '')).lower() or t.get('id') == 'diffy'):
                 needs_update = (
                     t.get('id') != 'diffy'
+                    or t.get('url') != diffy_url
                     or not t.get('info')
                     or not (t.get('config') or {}).get('enable', False)
                     or not (t.get('config') or {}).get('access_grants')
                 )
                 if needs_update:
                     t['id'] = 'diffy'
+                    t['url'] = diffy_url
                     t['info'] = {'id': 'diffy', 'name': t.get('name', 'Diffy Skills')}
                     if not t.get('config'):
                         t['config'] = {'enable': True, 'access_grants': [{'principal_type': 'user', 'principal_id': '*', 'permission': 'read'}]}
@@ -374,7 +376,7 @@ OPENAI_API_BASE_URL = os.getenv('OPENAI_API_BASE_URL', '')
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_API_BASE_URL = os.getenv('GEMINI_API_BASE_URL', '')
-DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://diffy-ax7l.onrender.com')
+DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://pawan11112-diffyproject.hf.space')
 ENABLE_DEFAULT_SKILLS_PROMPT = os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT', 'True').lower() == 'true'
 DEFAULT_SKILLS_USER_PROMPT = os.getenv(
     'DEFAULT_SKILLS_USER_PROMPT',
