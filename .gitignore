@@ -2,7 +2,7 @@ x.py
 yarn.lock
 .DS_Store
 node_modules
-/build
+# /build
 /.svelte-kit
 /package
 .env
@@ -25,7 +25,7 @@ static/pyodide/*
 
 # Distribution / packaging
 .Python
-build/
+# build/
 develop-eggs/
 dist/
 downloads/

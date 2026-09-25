@@ -1,0 +1,4 @@
+build-essential
+pandoc
+ffmpeg
+libmariadb-dev

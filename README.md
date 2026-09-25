@@ -1,10 +1,13 @@
 ---
-title: FluAI Open WebUI
-emoji: 🚀
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 8080
+title: Fluai
+emoji: 🌖
+colorFrom: yellow
+colorTo: pink
+sdk: gradio
+sdk_version: 6.28.0
+python_version: '3.12'
+app_file: app.py
+pinned: false
 ---
 
 # Open WebUI 👋
