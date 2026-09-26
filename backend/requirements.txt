@@ -55,6 +55,10 @@ langchain-community==0.4.2
 langchain-classic==1.0.7
 langchain-text-splitters==1.1.2
 
+chromadb==1.5.9
+rank-bm25==0.2.2
+black==26.5.1
+
 pypdf==6.7.5
 fpdf2==2.8.7
 pymdown-extensions==10.21.3

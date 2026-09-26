@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import logging
 
-import black
+try:
+    import black
+except ImportError:
+    black = None
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from open_webui.config import DATA_DIR, ENABLE_ADMIN_EXPORT
 from open_webui.constants import ERROR_MESSAGES
@@ -31,6 +35,8 @@ class CodeForm(BaseModel):
 
 @router.post('/code/format')
 async def format_code(form_data: CodeForm, user=Depends(get_admin_user)):
+    if black is None:
+        return {'code': form_data.code}
     try:
         formatted_code = black.format_str(form_data.code, mode=black.Mode())
         return {'code': formatted_code}

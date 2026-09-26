@@ -3,8 +3,15 @@ from __future__ import annotations
 import logging
 import urllib.request
 
-from ddgs import DDGS
-from ddgs.exceptions import RatelimitException
+try:
+    from ddgs import DDGS
+    from ddgs.exceptions import RatelimitException
+except ImportError:
+    DDGS = None
+
+    class RatelimitException(Exception):
+        pass
+
 from open_webui.retrieval.web.main import SearchResult, get_filtered_results
 
 log = logging.getLogger(__name__)
@@ -27,6 +34,10 @@ def search_duckduckgo(
     Returns:
         list[SearchResult]: A list of search results
     """
+    if DDGS is None:
+        log.warning("DuckDuckGo search requested but 'ddgs' library is not installed.")
+        return []
+
     # The ddgs library (primp-based) does not auto-detect proxy env vars.
     # Resolve via stdlib getproxies() — same pattern as the other loaders.
     env_proxies = urllib.request.getproxies()
