@@ -17,6 +17,9 @@ os.environ.setdefault("HOST", "0.0.0.0")
 os.environ.setdefault("FRONTEND_BUILD_DIR", str(ROOT_DIR / "build"))
 os.environ.setdefault("DATA_DIR", str(BACKEND_DIR / "data"))
 os.environ.setdefault("DOCKER", "false")
+os.environ.setdefault("WEBUI_SECRET_KEY", "fluai_secret_key_987654321_secure")
+os.environ.setdefault("ENABLE_SIGNUP", "true")
+os.environ.setdefault("DIFY_API_BASE_URL", "https://pawan11112-diffyproject.hf.space")
 
 try:
     import spaces
