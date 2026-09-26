@@ -6,14 +6,31 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import BinaryIO, Dict, Tuple
 
-import boto3
-from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient
-from botocore.config import Config
-from botocore.exceptions import ClientError
-from google.cloud import storage
-from google.cloud.exceptions import GoogleCloudError, NotFound
+try:
+    import boto3
+    from botocore.config import Config
+    from botocore.exceptions import ClientError
+except ImportError:
+    boto3 = None
+    Config = None
+    ClientError = None
+
+try:
+    from azure.core.exceptions import ResourceNotFoundError
+    from azure.identity import DefaultAzureCredential
+    from azure.storage.blob import BlobServiceClient
+except ImportError:
+    ResourceNotFoundError = None
+    DefaultAzureCredential = None
+    BlobServiceClient = None
+
+try:
+    from google.cloud import storage
+    from google.cloud.exceptions import GoogleCloudError, NotFound
+except ImportError:
+    storage = None
+    GoogleCloudError = None
+    NotFound = None
 from open_webui.config import (
     AZURE_STORAGE_CONTAINER_NAME,
     AZURE_STORAGE_ENDPOINT,

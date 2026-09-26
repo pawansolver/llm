@@ -12,9 +12,13 @@ from ssl import CERT_NONE, CERT_REQUIRED, PROTOCOL_TLS
 from aiohttp import BasicAuth, ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, Response
-from ldap3 import NONE, Connection, Server, Tls
-from ldap3.utils.conv import escape_filter_chars
-from ldap3.utils.dn import parse_dn
+try:
+    from ldap3 import NONE, Connection, Server, Tls
+    from ldap3.utils.conv import escape_filter_chars
+    from ldap3.utils.dn import parse_dn
+except ImportError:
+    NONE = Connection = Server = Tls = None
+    escape_filter_chars = parse_dn = None
 from open_webui.config import (
     ENABLE_PASSWORD_AUTH,
     ENABLE_SIGNUP,

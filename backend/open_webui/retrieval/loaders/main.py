@@ -3,9 +3,21 @@ import json
 import logging
 import sys
 
-import ftfy
+try:
+    import ftfy
+except ImportError:
+    class FtfyFallback:
+        @staticmethod
+        def fix_text(text):
+            return text
+    ftfy = FtfyFallback()
+
 import requests
-from azure.identity import DefaultAzureCredential
+
+try:
+    from azure.identity import DefaultAzureCredential
+except ImportError:
+    DefaultAzureCredential = None
 from langchain_community.document_loaders import (
     AzureAIDocumentIntelligenceLoader,
     BSHTMLLoader,
