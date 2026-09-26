@@ -23,6 +23,7 @@ os.environ.setdefault("DIFY_API_BASE_URL", "https://pawan11112-diffyproject.hf.s
 
 try:
     import spaces
+    from spaces import zero
 except ImportError:
     class DummySpaces:
         def GPU(self, fn=None, **kwargs):
@@ -30,6 +31,7 @@ except ImportError:
                 return lambda f: f
             return fn
     spaces = DummySpaces()
+    zero = None
 
 # ZeroGPU hook to satisfy Hugging Face startup scanner
 @spaces.GPU
@@ -39,21 +41,25 @@ def ping_gpu(query: str = ""):
 import gradio as gr
 from open_webui.main import app as webui_app
 
-# Minimal Gradio dashboard on subpath /gpu to satisfy ZeroGPU scanner
-with gr.Blocks(title="fluAi ZeroGPU") as demo:
-    gr.Markdown("# 🚀 fluAi Enterprise Gateway")
-    gr.Markdown("**Status:** 🟢 Online & Running on Hugging Face Spaces (ZeroGPU)")
-    gr.Markdown("WebUI is served directly at root `/` and API at `/api/v1`.")
-    with gr.Row():
-        test_in = gr.Textbox(label="Test GPU Input", value="ping")
-        btn = gr.Button("Ping ZeroGPU", variant="primary")
-    status_out = gr.Textbox(label="Status")
-    btn.click(fn=ping_gpu, inputs=test_in, outputs=status_out)
+# Standard gr.Interface directly bound to @spaces.GPU function for ZeroGPU supervisor detection
+demo = gr.Interface(
+    fn=ping_gpu,
+    inputs=gr.Textbox(label="Test GPU Input", value="ping"),
+    outputs=gr.Textbox(label="Status"),
+    title="🚀 fluAi Enterprise Gateway",
+    description="WebUI is served directly at root / and API at /api/v1."
+)
 
 # Mount Gradio on /gpu subpath so Open WebUI gets the root / and all APIs!
 app = gr.mount_gradio_app(webui_app, demo, path="/gpu")
 
 if __name__ == "__main__":
+    if zero is not None and hasattr(zero, "startup"):
+        try:
+            zero.startup()
+        except Exception as e:
+            print("zero.startup notice:", e)
+
     import uvicorn
     port = int(os.environ.get("PORT", 7860))
     host = os.environ.get("HOST", "0.0.0.0")
