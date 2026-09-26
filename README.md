@@ -1,5 +1,5 @@
 ---
-title: Fluai
+title: Openwebui
 emoji: 🌖
 colorFrom: yellow
 colorTo: pink
