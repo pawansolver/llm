@@ -1,3 +1,10 @@
+
+import os
+ENABLE_DEFAULT_SKILLS_PROMPT = os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT', 'True').lower() == 'true'
+DEFAULT_SKILLS_USER_PROMPT = os.getenv(
+    'DEFAULT_SKILLS_USER_PROMPT',
+    'If you have MCP skills tools available, call list_skills and get_skill to find relevant instructions. If no matching skill is found or tools are unavailable, answer helpfully from your knowledge.'
+)
 import ast
 import asyncio
 import base64
@@ -23,10 +30,8 @@ from open_webui.config import (
     CODE_INTERPRETER_BLOCKED_MODULES,
     CODE_INTERPRETER_PYODIDE_PROMPT,
     DEFAULT_CODE_INTERPRETER_PROMPT,
-    DEFAULT_SKILLS_USER_PROMPT,
     DEFAULT_TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE,
     DEFAULT_VOICE_MODE_PROMPT_TEMPLATE,
-    ENABLE_DEFAULT_SKILLS_PROMPT,
 )
 from open_webui.constants import TASKS
 from open_webui.env import (
@@ -2231,22 +2236,40 @@ async def connect_mcp_server(
         log.warning(f'Access denied to MCP server {server_id} for user {user.id}')
         return None
 
-    headers, _ = await build_tool_server_headers(
-        mcp_server_connection,
-        request,
-        user,
-        server_id=server_id,
-        metadata=metadata,
-        extra_params=extra_params,
-    )
+    try:
+        headers, _ = await build_tool_server_headers(
+            mcp_server_connection,
+            request,
+            user,
+            server_id=server_id,
+            metadata=metadata,
+        )
+    except TypeError:
+        try:
+            headers, _ = await build_tool_server_headers(
+                mcp_server_connection,
+                request,
+                user,
+            )
+        except Exception:
+            headers = {}
+    except Exception as e:
+        log.warning(f"Failed to build tool server headers: {e}")
+        headers = {}
 
-    client = MCPClient()
-    # Retry logic for Render free tier cold starts (server wakes up slowly)
     mcp_url = mcp_server_connection.get('url', '')
+    if 'localhost:7860' in mcp_url:
+        mcp_url = mcp_url.replace('localhost:7860', 'diffy:7860')
+    elif '127.0.0.1:7860' in mcp_url:
+        mcp_url = mcp_url.replace('127.0.0.1:7860', 'diffy:7860')
+    elif not mcp_url and server_id in ('diffy', 'skills'):
+        mcp_url = 'http://diffy:7860/mcp'
     max_retries = 2  # Reduced from 3 to limit blocking time
     last_connect_error = None
+    client = None
     for attempt in range(1, max_retries + 1):
         try:
+            client = MCPClient()
             await client.connect(
                 url=mcp_url,
                 headers=headers if headers else None,
@@ -3086,7 +3109,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     # to prevent template parsing errors with strict chat templates (e.g. Qwen)
     form_data['messages'] = merge_system_messages(form_data.get('messages', []))
 
-    return form_data, metadata, events
+    return form_data, metadata, events, False  # paused=False required by main.py
 
 
 async def get_event_emitter_and_caller(metadata):
@@ -3503,7 +3526,7 @@ async def background_tasks_handler(ctx):
             await review_memory_after_turn(
                 request=request,
                 user=user,
-                model=ctx['model'],
+                model=ctx.get('model', ''),
                 metadata=metadata,
                 form_data=form_data,
                 assistant_message=ctx.get('assistant_message') or {},
@@ -3522,7 +3545,7 @@ async def outlet_filter_handler(ctx):
     """
     request = ctx['request']
     user = ctx['user']
-    model = ctx['model']
+    model = ctx.get('model', '')
     metadata = ctx['metadata']
     event_emitter = ctx.get('event_emitter')
     event_caller = ctx.get('event_caller')
@@ -5806,3 +5829,31 @@ async def process_chat_response(response, ctx):
 
     # Streaming response
     return await streaming_chat_response_handler(response, ctx)
+
+
+async def publish_chat_failed_event(request, user, metadata, error):
+    chat_id = metadata.get('chat_id')
+    try:
+        from open_webui.utils.chat_id import is_saved_chat_id
+        if getattr(request.state, 'internal', False) is True or not is_saved_chat_id(chat_id):
+            return
+        webui_url = await Config.get('webui.url')
+        await publish_event(
+            request,
+            EVENTS.CHAT_FAILED,
+            actor=user,
+            subject_id=chat_id,
+            subject_type='chat',
+            data={
+                'user_id': user.id,
+                'chat_id': chat_id,
+                'message_id': metadata.get('message_id'),
+                'model_id': metadata.get('model_id'),
+                'url': f'{webui_url}/c/{chat_id}' if webui_url else f'/c/{chat_id}',
+                'message': error,
+            },
+            message='Chat failed',
+        )
+    except Exception as e:
+        log.warning(f"Error publishing chat failed event: {e}")
+

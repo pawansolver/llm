@@ -1491,6 +1491,10 @@ async def generate_chat_completion(
     if not is_streaming_request:
         payload.pop('stream_options', None)
 
+    # Strip internal / non-standard fields that strict upstream providers (like Google Gemini) reject
+    for non_std_key in ['tool_ids', 'session_id', 'chat_id', 'id', 'features', 'files', 'variables', 'chat_variables', 'terminal_id', 'filter_ids', 'metadata', 'background_tasks', 'model_item']:
+        payload.pop(non_std_key, None)
+
     payload = json.dumps(payload)
 
     r = None
@@ -1553,7 +1557,7 @@ async def generate_chat_completion(
 
             streaming = True
             return StreamingResponse(
-                stream_wrapper(r, content_handler=stream_chunks_handler),
+                stream_wrapper(r),
                 status_code=r.status,
                 headers=_clean_proxy_headers(r.headers),
             )

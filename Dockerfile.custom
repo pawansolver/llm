@@ -1,0 +1,4 @@
+FROM ghcr.io/open-webui/open-webui:main
+
+# Copy customized backend directly into the container image
+COPY backend/open_webui /app/backend/open_webui

@@ -70,7 +70,7 @@ async def seed_registered_defaults():
 
     current_tools = await Config.get('tool_server.connections')
     # Auto-configure Diffy MCP server connection so it NEVER has to be manually added in Admin Settings
-    diffy_url = os.getenv('DIFY_API_BASE_URL', 'https://pawan11112-diffyproject.hf.space').rstrip('/') + '/mcp'
+    diffy_url = os.getenv('DIFY_API_BASE_URL', 'http://15.135.138.107:7860').rstrip('/') + '/mcp'
     diffy_conn = {
         'id': 'diffy',
         'info': {'id': 'diffy', 'name': 'Diffy Skills'},
@@ -376,7 +376,7 @@ OPENAI_API_BASE_URL = os.getenv('OPENAI_API_BASE_URL', '')
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_API_BASE_URL = os.getenv('GEMINI_API_BASE_URL', '')
-DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'https://pawan11112-diffyproject.hf.space')
+DIFY_API_BASE_URL = os.getenv('DIFY_API_BASE_URL', 'http://15.135.138.107:7860')
 ENABLE_DEFAULT_SKILLS_PROMPT = os.getenv('ENABLE_DEFAULT_SKILLS_PROMPT', 'True').lower() == 'true'
 DEFAULT_SKILLS_USER_PROMPT = os.getenv(
     'DEFAULT_SKILLS_USER_PROMPT',
