@@ -1,4 +1,8 @@
 FROM ghcr.io/open-webui/open-webui:main
 
-# Copy customized backend directly into the container image
-COPY backend/open_webui /app/backend/open_webui
+# Copy custom backend modifications over official base image
+COPY backend/open_webui/providers /app/backend/open_webui/providers
+COPY backend/open_webui/routers/openai.py /app/backend/open_webui/routers/openai.py
+COPY backend/open_webui/routers/mediation.py /app/backend/open_webui/routers/mediation.py
+COPY backend/open_webui/utils/middleware.py /app/backend/open_webui/utils/middleware.py
+COPY backend/open_webui/utils/mcp/client.py /app/backend/open_webui/utils/mcp/client.py
